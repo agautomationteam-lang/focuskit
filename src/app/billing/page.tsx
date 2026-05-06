@@ -17,25 +17,31 @@ const PLANS = [
   {
     id: 'starter',
     name: 'Starter',
-    price: '$49',
+    price: '$29',
+    // TODO: Stripe price_id → price_1xxx_starter ($29/mo = 2900 cents)
+    stripeAmount: 2900,
     popular: false,
+    tag: '5 replies/mo',
     features: [
-      'Unlimited AI-generated replies',
+      '5 AI-generated replies/month',
       'Professional & friendly drafts',
+      'Manual approve before posting',
       'Weekly email digest',
-      '1-click approve & publish',
       'Email support',
     ],
   },
   {
     id: 'pro',
     name: 'Pro',
-    price: '$99',
+    price: '$59',
+    // TODO: Stripe price_id → price_1xxx_pro ($59/mo = 5900 cents)
+    stripeAmount: 5900,
     popular: true,
+    tag: 'Unlimited · Auto-post',
     features: [
-      'Everything in Starter',
-      'Auto-reply on new reviews',
-      'Luxury & casual tone options',
+      'Unlimited AI-generated replies',
+      'All 4 tone options',
+      'Auto-reply — zero manual effort',
       'Negative review instant alerts',
       'Priority support',
     ],
@@ -97,8 +103,11 @@ export default function BillingPage() {
               {plan.popular && (
                 <span className="text-[11px] font-bold text-blue-400 uppercase tracking-widest mb-3">Most popular</span>
               )}
-              <h2 className="text-lg font-bold text-white">{plan.name}</h2>
-              <div className="mt-1 mb-5">
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <h2 className="text-lg font-bold text-white">{plan.name}</h2>
+                <span className="text-[11px] font-semibold text-slate-400 bg-slate-800 border border-slate-700 px-2 py-0.5 rounded-full shrink-0 mt-0.5">{plan.tag}</span>
+              </div>
+              <div className="mt-0 mb-5">
                 <span className="text-3xl font-bold text-white">{plan.price}</span>
                 <span className="text-slate-400 text-sm">/month</span>
               </div>
@@ -110,10 +119,15 @@ export default function BillingPage() {
                   </li>
                 ))}
               </ul>
-              {/* TODO: Replace with Stripe checkout — await fetch('/api/stripe/checkout', { method:'POST', body: JSON.stringify({ plan: plan.id }) }) */}
+              {/* TODO: Wire Stripe checkout →
+                   fetch('/api/stripe/checkout', {
+                     method: 'POST',
+                     body: JSON.stringify({ planId: plan.id, amount: plan.stripeAmount })
+                   })
+                   Starter = $29/mo (2900 cents), Pro = $59/mo (5900 cents) */}
               <button
                 onClick={() => handleNotify(plan.id)}
-                className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors btn-press ${
                   notified === plan.id
                     ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
                     : plan.popular
@@ -121,7 +135,7 @@ export default function BillingPage() {
                     : 'bg-slate-700 text-white'
                 }`}
               >
-                {notified === plan.id ? '✓ You\'ll be notified' : `Get ${plan.name}`}
+                {notified === plan.id ? '✓ You\'ll be notified' : `Get ${plan.name} — ${plan.price}/mo`}
               </button>
             </div>
           ))}

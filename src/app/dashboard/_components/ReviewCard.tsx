@@ -134,22 +134,23 @@ export default function ReviewCard({ review, demo = false, onPublish, onAddToast
     const { offset, velocity } = info
 
     if (!isPosted && (offset.x > SWIPE_THRESHOLD || velocity.x > VELOCITY_THRESHOLD)) {
-      // Swipe right → approve
+      // Swipe right → approve; snap back then publish
       void triggerHaptic('medium')
       animate(x, 0, { type: 'spring', stiffness: 400, damping: 35 })
       void handlePublishDemo()
     } else if (offset.x < -SWIPE_THRESHOLD || velocity.x < -VELOCITY_THRESHOLD) {
-      // Swipe left → dismiss (fly off screen)
+      // Swipe left → fly off with real physics (uses actual swipe velocity)
       void triggerHaptic('light')
-      animate(x, -500, {
-        type: 'tween',
-        duration: 0.22,
-        ease: 'easeIn',
+      animate(x, -520, {
+        type: 'spring',
+        stiffness: 250,
+        damping: 28,
+        velocity: Math.min(velocity.x, -300),  // real swipe momentum
         onComplete: () => setDismissed(true),
       })
     } else {
-      // Snap back to center
-      animate(x, 0, { type: 'spring', stiffness: 500, damping: 40 })
+      // Not past threshold → spring back with tension
+      animate(x, 0, { type: 'spring', stiffness: 600, damping: 42 })
     }
   }
 
@@ -278,9 +279,9 @@ export default function ReviewCard({ review, demo = false, onPublish, onAddToast
         willChange: 'transform',
         boxShadow: isUrgent
           ? undefined
-          : '0 4px 24px rgba(0,0,0,0.4), 0 1px 6px rgba(0,0,0,0.25)',
+          : '0 1px 3px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.18)',
       }}
-      className={`fade-in rounded-2xl p-5 space-y-4 border relative overflow-hidden select-none cursor-grab active:cursor-grabbing ${
+      className={`fade-in rounded-2xl p-5 space-y-4 border relative overflow-hidden select-none ${
         isUrgent
           ? 'bg-slate-800 urgent-pulse'
           : 'bg-slate-800 border-slate-700/50'

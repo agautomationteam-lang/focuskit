@@ -168,6 +168,8 @@ export default function ReviewList({
   const [lastUpdatedLabel, setLastUpdatedLabel] = useState('')
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [ptrActive, setPtrActive]           = useState(false)
+  const [showWelcome, setShowWelcome]       = useState(false)
+  const [welcomeName, setWelcomeName]       = useState('')
 
   const autoReplyRef     = useRef(autoReply)
   const reviewsRef       = useRef(reviews)
@@ -214,7 +216,27 @@ export default function ReviewList({
 
   useEffect(() => {
     if (publishFailed || upgradeSuccess) router.replace('/dashboard')
+
+    // First-launch gate — redirect to onboarding if not completed
+    const done = localStorage.getItem('rk_onboarding_done')
+    if (!done) {
+      router.push('/onboarding')
+      return
+    }
+
+    // Welcome banner after onboarding
+    const welcome = localStorage.getItem('rk_show_welcome')
+    const name    = localStorage.getItem('rk_business_name')
+    if (welcome) {
+      setShowWelcome(true)
+      setWelcomeName(name ?? '')
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function dismissWelcome() {
+    localStorage.removeItem('rk_show_welcome')
+    setShowWelcome(false)
+  }
 
   // ── Last-updated label ──────────────────────────────────────────────────────
 
@@ -482,6 +504,28 @@ export default function ReviewList({
           </p>
         </div>
 
+        {/* Welcome banner (shown once after onboarding) */}
+        {showWelcome && (
+          <div className="mb-5 flex items-start gap-3 bg-blue-600/10 border border-blue-500/20 rounded-xl px-4 py-3.5 slide-in-down">
+            <span className="text-xl leading-none shrink-0 mt-0.5">👋</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white leading-snug">
+                Welcome{welcomeName ? `, ${welcomeName}` : ''}! Here's your Review Inbox
+              </p>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                AI replies will generate automatically as reviews come in. Swipe right to approve, left to skip.
+              </p>
+            </div>
+            <button
+              onClick={dismissWelcome}
+              className="text-slate-500 shrink-0 text-xl leading-none mt-0.5"
+              aria-label="Dismiss"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         {/* Metrics bar (demo only) */}
         {demo && (
           <div className="mb-6 grid grid-cols-3 gap-3 fade-in">
@@ -698,9 +742,9 @@ export default function ReviewList({
         ) : reviews.length === 0 ? (
           <div className="text-center py-20 px-6">
             <div className="w-16 h-16 rounded-2xl bg-blue-500/20 flex items-center justify-center text-3xl mx-auto mb-5">📬</div>
-            <h2 className="text-base font-semibold text-white mb-2">No reviews connected yet</h2>
+            <h2 className="text-base font-semibold text-white mb-2">No reviews yet</h2>
             <p className="text-sm text-slate-400 mb-7 max-w-xs mx-auto leading-relaxed">
-              Every day without replies is revenue at risk. Pull in your Google reviews and get AI-drafted replies in seconds.
+              When you get reviews, they'll appear here. AI replies will post automatically — you don't need to lift a finger.
             </p>
             {!demo && (
               <button

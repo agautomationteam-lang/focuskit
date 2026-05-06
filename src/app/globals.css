@@ -209,10 +209,21 @@ a, button { -webkit-tap-highlight-color: transparent; }
   background: #60a5fa;
 }
 
-/* ── Native card shadow ─────────────────────────────────────────────────── */
+/* ── Native card shadow (subtle, not floaty) ────────────────────────────── */
 .native-card {
-  box-shadow: 0 2px 12px rgba(0,0,0,0.35), 0 1px 4px rgba(0,0,0,0.25);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15);
   border-radius: 16px;
+}
+
+/* ── Non-interactive elements: no pointer cursor ────────────────────────── */
+p, span, div, section, article, h1, h2, h3, h4, h5, h6 {
+  cursor: default;
+}
+
+/* ── No text selection on interactive / card elements ──────────────────── */
+.select-none, button, [role="button"] {
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* ── Ensure no text smaller than 14px ──────────────────────────────────── */
