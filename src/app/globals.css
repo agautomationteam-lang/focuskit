@@ -17,7 +17,7 @@ textarea { resize: vertical; }
 
 /* ── No horizontal overflow anywhere ───────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
-html, body { max-width: 100vw; overflow-x: hidden; }
+body { max-width: 100vw; overflow-x: hidden; }
 
 /* ── Touch devices: remove ALL hover side-effects ───────────────────────
    On Android, tap briefly triggers :hover before :active.

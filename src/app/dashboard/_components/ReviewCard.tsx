@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { motion, useMotionValue, useTransform, animate, type PanInfo } from 'framer-motion'
+import { useState, useEffect, useRef } from 'react'
+import { motion, useMotionValue, useTransform, animate } from 'framer-motion'
 import { pickTemplate } from './demoData'
 
 interface ResponseData {
@@ -33,7 +33,6 @@ interface Props {
 const AVATAR_COLORS = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#06b6d4','#ef4444']
 const SWIPE_THRESHOLD    = 80
 const VELOCITY_THRESHOLD = 400
-const DRAG_CONSTRAINTS   = { left: 0, right: 0 }
 
 function ReviewerAvatar({ name }: { name: string }) {
   const idx      = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
@@ -113,9 +112,9 @@ export default function ReviewCard({ review, demo = false, onPublish, onAddToast
   const [reposted, setReposted]           = useState(false)
   const [dismissed, setDismissed]         = useState(false)
 
-  // ── Framer-motion swipe values (zero re-renders during drag) ────────────
-  const x             = useMotionValue(0)
-  const rotate        = useTransform(x, [-140, 0, 140], [-4, 0, 4])
+  // ── Framer-motion values (driven by touch, zero re-renders during swipe) ─
+  const x              = useMotionValue(0)
+  const rotate         = useTransform(x, [-140, 0, 140], [-4, 0, 4])
   const approveOpacity = useTransform(x, [30, SWIPE_THRESHOLD], [0, 1])
   const skipOpacity    = useTransform(x, [-SWIPE_THRESHOLD, -30], [1, 0])
 
@@ -130,30 +129,89 @@ export default function ReviewCard({ review, demo = false, onPublish, onAddToast
     if (isUrgent) void triggerNotificationVibrate()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Drag end handler ────────────────────────────────────────────────────
-  function handleDragEnd(_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) {
-    const { offset, velocity } = info
+  // ── Swipe end logic (kept in a ref so DOM handler always reads fresh state)
+  const cardRef    = useRef<HTMLDivElement>(null)
+  const swipeLogic = useRef<(dx: number, vx: number) => void>(() => {})
 
-    if (!isPosted && (offset.x > SWIPE_THRESHOLD || velocity.x > VELOCITY_THRESHOLD)) {
-      // Swipe right → approve; snap back then publish
+  swipeLogic.current = (dx: number, vx: number) => {
+    if (!isPosted && (dx > SWIPE_THRESHOLD || vx > VELOCITY_THRESHOLD)) {
       void triggerHaptic('medium')
       animate(x, 0, { type: 'spring', stiffness: 400, damping: 35 })
       void handlePublishDemo()
-    } else if (offset.x < -SWIPE_THRESHOLD || velocity.x < -VELOCITY_THRESHOLD) {
-      // Swipe left → fly off with real physics (uses actual swipe velocity)
+    } else if (dx < -SWIPE_THRESHOLD || vx < -VELOCITY_THRESHOLD) {
       void triggerHaptic('light')
       animate(x, -520, {
-        type: 'spring',
-        stiffness: 250,
-        damping: 28,
-        velocity: Math.min(velocity.x, -300),  // real swipe momentum
+        type: 'spring', stiffness: 250, damping: 28,
+        velocity: Math.min(vx, -300),
         onComplete: () => setDismissed(true),
       })
     } else {
-      // Not past threshold → spring back with tension
       animate(x, 0, { type: 'spring', stiffness: 600, damping: 42 })
     }
   }
+
+  // ── Direct DOM touch handler: decides direction before doing anything ────
+  // Using non-passive touchmove lets us call preventDefault for horizontal
+  // swipes only — vertical touches fall through to native browser scroll.
+  useEffect(() => {
+    const el = cardRef.current
+    if (!el) return
+
+    let startX = 0, startY = 0, lastX = 0, lastT = 0
+    let direction: 'x' | 'y' | null = null
+    let active = false
+
+    function onTouchStart(e: TouchEvent) {
+      const t = e.target as HTMLElement
+      if (t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON' || t.tagName === 'A') return
+      startX = e.touches[0].clientX
+      startY = e.touches[0].clientY
+      lastX = startX
+      lastT = Date.now()
+      direction = null
+      active = true
+    }
+
+    function onTouchMove(e: TouchEvent) {
+      if (!active) return
+      const dx = e.touches[0].clientX - startX
+      const dy = e.touches[0].clientY - startY
+
+      if (!direction) {
+        if (Math.hypot(dx, dy) > 8) {
+          direction = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
+          if (direction === 'y') { active = false; return }
+        } else { return }
+      }
+
+      e.preventDefault()
+      x.set(dx)
+      lastX = e.touches[0].clientX
+      lastT = Date.now()
+    }
+
+    function onTouchEnd(e: TouchEvent) {
+      if (!active || direction !== 'x') { active = false; direction = null; return }
+      active = false
+
+      const finalX = e.changedTouches[0].clientX
+      const dx     = finalX - startX
+      const dt     = Math.max(Date.now() - lastT, 16)
+      const vx     = (finalX - lastX) / dt * 1000
+
+      swipeLogic.current(dx, vx)
+      direction = null
+    }
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true })
+    el.addEventListener('touchmove',  onTouchMove,  { passive: false })
+    el.addEventListener('touchend',   onTouchEnd,   { passive: true })
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove',  onTouchMove)
+      el.removeEventListener('touchend',   onTouchEnd)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Draft helpers ────────────────────────────────────────────────────────
   function switchDraft(draft: 'professional' | 'friendly') {
@@ -268,15 +326,10 @@ export default function ReviewCard({ review, demo = false, onPublish, onAddToast
 
   return (
     <motion.div
-      drag="x"
-      dragConstraints={DRAG_CONSTRAINTS}
-      dragElastic={0.15}
-      dragMomentum={false}
-      onDragEnd={handleDragEnd}
+      ref={cardRef}
       style={{
         x,
         rotate,
-        touchAction: 'pan-y',
         boxShadow: isUrgent
           ? undefined
           : '0 1px 3px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.18)',

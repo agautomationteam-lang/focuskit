@@ -640,27 +640,6 @@ export default function ReviewList({
           </div>
         )}
 
-        {/* Damage controlled banner */}
-        {badHandled > 0 && !loading && (
-          <div className="mb-4 flex items-center gap-3 bg-red-500/15 border border-red-500/30 rounded-xl px-4 py-3 text-sm text-red-300 font-medium fade-in">
-            <span>🚨</span>
-            <span>
-              {badHandled} negative review{badHandled !== 1 ? 's' : ''} replied to — reputation protected
-            </span>
-          </div>
-        )}
-
-        {/* Auto-replied stats */}
-        {autoReplied > 0 && !loading && (
-          <div className="mb-4 flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 text-sm text-emerald-300 font-medium fade-in">
-            <span>✓</span>
-            <span>
-              <strong>{autoReplied}</strong> review{autoReplied !== 1 ? 's' : ''} replied automatically ·{' '}
-              avg reply time: <strong>{avgReplyTime === '--' ? '—' : `${avgReplyTime}s`}</strong>
-            </span>
-          </div>
-        )}
-
         {/* Negative review urgency warning */}
         {negativeUnreplied > 0 && !loading && (
           <div className="mb-4 flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 text-sm text-amber-300 font-medium">
