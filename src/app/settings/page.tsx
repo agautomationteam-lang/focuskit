@@ -75,7 +75,7 @@ export default function SettingsPage() {
                   key={t.id}
                   type="button"
                   onClick={() => setTone(t.id)}
-                  className={`px-4 py-3 rounded-xl text-sm font-medium text-left transition-all border ${
+                  className={`px-4 py-3 rounded-xl text-sm font-medium text-left transition-colors border ${
                     tone === t.id
                       ? 'bg-blue-600/15 border-blue-500/50 text-blue-300 ring-1 ring-blue-500/30'
                       : 'bg-slate-900/50 border-slate-700 text-slate-400'

@@ -195,7 +195,7 @@ export default function ReviewList({
 
   function onPtrTouchMove(e: React.TouchEvent) {
     const dy = e.touches[0].clientY - ptrStartY.current
-    const atTop = (scrollContainerRef.current?.scrollTop ?? 0) === 0
+    const atTop = (typeof window !== 'undefined' ? window.scrollY : 0) === 0
     if (dy > 60 && atTop && !ptrTriggered.current) {
       ptrTriggered.current = true
       setPtrActive(true)
@@ -268,7 +268,7 @@ export default function ReviewList({
 
   // ── Publish callback (from ReviewCard) ────────────────────────────────────
 
-  function handlePublish(reviewId: string, finalText: string) {
+  const handlePublish = useCallback((reviewId: string, finalText: string) => {
     setReviews(prev => prev.map(r => {
       if (r.id !== reviewId) return r
       const resp = r.responses[0]
@@ -280,7 +280,7 @@ export default function ReviewList({
           : [{ id: `local_${Date.now()}`, draft_professional: finalText, draft_friendly: finalText, selected_draft: 'professional', final_text: finalText, status: 'posted' }],
       }
     }))
-  }
+  }, [])
 
   // ── Real-time simulation ──────────────────────────────────────────────────
 
@@ -481,7 +481,7 @@ export default function ReviewList({
       >
         {/* PTR indicator */}
         <div
-          className="ptr-indicator overflow-hidden transition-all duration-200"
+          className="ptr-indicator overflow-hidden transition-[height] duration-200"
           style={{ height: ptrActive ? 44 : 0 }}
         >
           <div className="flex items-center justify-center gap-2 text-slate-400 text-xs">
@@ -696,7 +696,7 @@ export default function ReviewList({
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`relative text-xs px-3 py-1.5 rounded-full font-medium capitalize transition-all ${
+                className={`relative text-xs px-3 py-1.5 rounded-full font-medium capitalize transition-colors ${
                   tab === t
                     ? 'bg-white text-slate-900 shadow-sm'
                     : 'bg-slate-800 text-slate-400 border border-slate-700'

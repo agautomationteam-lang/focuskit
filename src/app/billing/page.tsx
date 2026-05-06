@@ -94,7 +94,7 @@ export default function BillingPage() {
           {PLANS.map(plan => (
             <div
               key={plan.id}
-              className={`rounded-2xl p-6 border flex flex-col transition-all ${
+              className={`rounded-2xl p-6 border flex flex-col transition-colors ${
                 plan.popular
                   ? 'bg-blue-600/10 border-blue-500/40 ring-1 ring-blue-500/30'
                   : 'bg-slate-800/60 border-slate-700/50'

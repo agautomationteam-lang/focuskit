@@ -127,7 +127,7 @@ export default function OnboardingPage() {
                     <button
                       key={t.id}
                       onClick={() => setType(t.id)}
-                      className={`flex flex-col items-center gap-1.5 px-3 py-3.5 rounded-xl border text-center transition-all btn-press ${
+                      className={`flex flex-col items-center gap-1.5 px-3 py-3.5 rounded-xl border text-center transition-colors btn-press ${
                         businessType === t.id
                           ? 'bg-blue-600/15 border-blue-500/50 text-blue-300 ring-1 ring-blue-500/25'
                           : 'bg-slate-900/60 border-slate-700 text-slate-400'
@@ -194,7 +194,7 @@ export default function OnboardingPage() {
                     <button
                       key={t.id}
                       onClick={() => setTone(t.id)}
-                      className={`w-full text-left px-4 py-3 rounded-xl border transition-all btn-press ${
+                      className={`w-full text-left px-4 py-3 rounded-xl border transition-colors btn-press ${
                         tone === t.id
                           ? 'bg-blue-600/15 border-blue-500/50 ring-1 ring-blue-500/25'
                           : 'bg-slate-900/60 border-slate-700'

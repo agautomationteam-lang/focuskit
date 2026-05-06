@@ -227,7 +227,7 @@ export default function ActivityPage() {
             <button
               key={tab.id}
               onClick={() => setFilter(tab.id)}
-              className={`shrink-0 text-xs px-3.5 py-1.5 rounded-full font-medium transition-all ripple ${
+              className={`shrink-0 text-xs px-3.5 py-1.5 rounded-full font-medium transition-colors ripple ${
                 filter === tab.id
                   ? 'bg-white text-slate-900'
                   : 'bg-slate-800 text-slate-400 border border-slate-700'

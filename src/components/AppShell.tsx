@@ -241,8 +241,7 @@ export default function AppShell({ children, businessName }: Props) {
 
       {/* ── Mobile Bottom Tab Bar (5 tabs) ────────────────────────────── */}
       <nav
-        className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-[#0b0d14]/95 border-t border-slate-800/80 mobile-bottom-nav-shell"
-        style={{ backdropFilter: 'blur(12px)' }}
+        className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-[#0b0d14] border-t border-slate-800/80 mobile-bottom-nav-shell"
       >
         <div className="flex h-14">
           {BOTTOM_TABS.map(tab => {

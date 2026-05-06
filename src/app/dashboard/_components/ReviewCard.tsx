@@ -31,8 +31,9 @@ interface Props {
 }
 
 const AVATAR_COLORS = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#06b6d4','#ef4444']
-const SWIPE_THRESHOLD  = 80
+const SWIPE_THRESHOLD    = 80
 const VELOCITY_THRESHOLD = 400
+const DRAG_CONSTRAINTS   = { left: 0, right: 0 }
 
 function ReviewerAvatar({ name }: { name: string }) {
   const idx      = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
@@ -268,20 +269,19 @@ export default function ReviewCard({ review, demo = false, onPublish, onAddToast
   return (
     <motion.div
       drag="x"
-      dragConstraints={{ left: 0, right: 0 }}
-      dragElastic={0.7}
+      dragConstraints={DRAG_CONSTRAINTS}
+      dragElastic={0.15}
       dragMomentum={false}
       onDragEnd={handleDragEnd}
       style={{
         x,
         rotate,
         touchAction: 'pan-y',
-        willChange: 'transform',
         boxShadow: isUrgent
           ? undefined
           : '0 1px 3px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.18)',
       }}
-      className={`fade-in rounded-2xl p-5 space-y-4 border relative overflow-hidden select-none ${
+      className={`rounded-2xl p-5 space-y-4 border relative overflow-hidden select-none ${
         isUrgent
           ? 'bg-slate-800 urgent-pulse'
           : 'bg-slate-800 border-slate-700/50'
