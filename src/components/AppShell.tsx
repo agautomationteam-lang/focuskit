@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import ReplyKitLogo from './ReplyKitLogo'
 
 /* ── Desktop sidebar nav ────────────────────────────────────────────────── */
 const SIDEBAR_NAV = [
@@ -61,7 +62,7 @@ const SIDEBAR_NAV = [
 const BOTTOM_TABS = [
   {
     id: 'home',
-    href: '/dashboard',
+    href: '/dashboard?tab=home',
     label: 'Home',
     match: (p: string) => p === '/dashboard',
     filled: (
@@ -77,7 +78,7 @@ const BOTTOM_TABS = [
   },
   {
     id: 'reviews',
-    href: '/dashboard',
+    href: '/dashboard?tab=reviews',
     label: 'Reviews',
     match: (p: string) => false, // controlled by lastTab state
     filled: (
@@ -151,13 +152,15 @@ interface Props {
 export default function AppShell({ children, businessName }: Props) {
   const pathname = usePathname()
 
-  // Track which dashboard sub-tab was last tapped (Home vs Reviews)
+  // Track which dashboard sub-tab is active (Home vs Reviews)
   const [lastDashTab, setLastDashTab] = useState<string>('home')
 
   useEffect(() => {
-    const saved = typeof window !== 'undefined'
-      ? localStorage.getItem('rk_last_dash_tab') ?? 'home'
-      : 'home'
+    const params = new URLSearchParams(window.location.search)
+    const fromUrl = params.get('tab')
+    const saved = (fromUrl === 'home' || fromUrl === 'reviews')
+      ? fromUrl
+      : (localStorage.getItem('rk_last_dash_tab') ?? 'home')
     setLastDashTab(saved)
   }, [pathname])
 
@@ -181,7 +184,7 @@ export default function AppShell({ children, businessName }: Props) {
       <aside className="hidden lg:flex flex-col fixed inset-y-0 left-0 w-52 bg-slate-900 border-r border-slate-800 z-30">
 
         <div className="px-4 py-4 border-b border-slate-800 flex items-center gap-2.5">
-          <span className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">R</span>
+          <ReplyKitLogo size="md" />
           <div className="min-w-0">
             <p className="font-bold text-white text-[14px] tracking-tight leading-none">ReplyKit</p>
             {businessName && <p className="text-[11px] text-slate-500 truncate mt-0.5">{businessName}</p>}
@@ -224,7 +227,7 @@ export default function AppShell({ children, businessName }: Props) {
       <div className="lg:hidden fixed top-0 inset-x-0 z-30 bg-[#0b0d14] border-b border-slate-800/80 mobile-topbar-shell">
         <div className="h-11 flex items-center justify-between px-4">
           <div className="flex items-center gap-2">
-            <span className="w-6 h-6 rounded-md bg-blue-600 flex items-center justify-center text-white font-bold text-[11px]">R</span>
+            <ReplyKitLogo size="sm" />
             <span className="font-bold text-white text-[13px] tracking-tight">ReplyKit</span>
             {businessName && (
               <span className="text-[11px] text-slate-500 truncate max-w-[120px]">· {businessName}</span>

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import ReplyKitLogo from '@/components/ReplyKitLogo'
 
 const BUSINESS_TYPES = [
   { id: 'plumber',       label: 'Plumber',       icon: '🔧' },
@@ -84,7 +85,7 @@ export default function OnboardingPage() {
     >
       {/* Logo */}
       <div className="flex items-center gap-2 mb-10">
-        <span className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">R</span>
+        <ReplyKitLogo size="md" />
         <span className="font-bold text-white text-[15px] tracking-tight">ReplyKit</span>
       </div>
 
