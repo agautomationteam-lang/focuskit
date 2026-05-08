@@ -3,8 +3,8 @@ import { stripe } from '@/lib/stripe'
 import { NextResponse } from 'next/server'
 
 const PLANS = {
-  starter: { name: 'ReplyKit Starter', amount: 4900 },
-  pro:     { name: 'ReplyKit Pro',     amount: 9900 },
+  starter: { name: 'ReplyKit Starter', amount: 2900 },
+  pro:     { name: 'ReplyKit Pro',     amount: 5900 },
 } as const
 
 type PlanId = keyof typeof PLANS

@@ -4,11 +4,11 @@ import { NextResponse } from 'next/server'
 async function postToGMB(params: {
   accessToken: string
   placeId: string
-  reviewId: string
+  reviewId: string  // full resource name: "accounts/.../locations/.../reviews/..."
   replyText: string
 }): Promise<{ ok: boolean; error?: string }> {
-  // Google My Business API v4 reply endpoint
-  const url = `https://mybusiness.googleapis.com/v4/accounts/-/locations/-/reviews/${params.reviewId}/reply`
+  // reviewId is the full GBP resource path stored in google_review_id
+  const url = `https://mybusiness.googleapis.com/v4/${params.reviewId}/reply`
 
   const res = await fetch(url, {
     method: 'PUT',
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
 
   await supabase
     .from('reviews')
-    .update({ status: 'posted' })
+    .update({ status: 'posted', replied_at: now, reply_text: resp.final_text })
     .eq('id', resp.review_id)
 
   return NextResponse.json({

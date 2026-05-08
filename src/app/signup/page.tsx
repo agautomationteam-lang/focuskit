@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import ReplyKitLogo from '@/components/ReplyKitLogo'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -52,7 +53,7 @@ export default function SignupPage() {
     <div className="min-h-screen bg-[#0b0d14] flex flex-col items-center justify-center px-4">
 
       <Link href="/" className="flex items-center gap-2 mb-10">
-        <span className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">R</span>
+        <ReplyKitLogo size="sm" />
         <span className="font-bold text-white text-[15px] tracking-tight">ReplyKit</span>
       </Link>
 

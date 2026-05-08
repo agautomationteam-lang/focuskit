@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import ReplyKitLogo from '@/components/ReplyKitLogo'
 
 function Check() {
   return (
@@ -15,25 +16,25 @@ const PLANS = [
   {
     id: 'starter',
     name: 'Starter',
-    price: '$49',
+    price: '$29',
     popular: false,
     features: [
-      'Unlimited AI-generated replies',
+      '5 AI-generated replies/month',
       'Professional & friendly drafts',
-      'Weekly email digest',
       '1-click approve & publish',
+      'Weekly email digest',
       'Email support',
     ],
   },
   {
     id: 'pro',
     name: 'Pro',
-    price: '$99',
+    price: '$59',
     popular: true,
     features: [
-      'Everything in Starter',
+      'Unlimited AI replies',
       'Auto-reply on new reviews',
-      'Luxury & casual tone options',
+      'All 4 tone options',
       'Negative review instant alerts',
       'Priority support',
     ],
@@ -45,7 +46,7 @@ export default function UpgradePage() {
     <div className="min-h-screen bg-[#0b0d14] flex flex-col items-center justify-center px-4 py-16">
 
       <Link href="/" className="flex items-center gap-2 mb-12">
-        <span className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">R</span>
+        <ReplyKitLogo size="sm" />
         <span className="font-bold text-white text-[15px] tracking-tight">ReplyKit</span>
       </Link>
 
@@ -92,13 +93,16 @@ export default function UpgradePage() {
                   </li>
                 ))}
               </ul>
-              {/* TODO: Replace with Stripe checkout when payment integration is ready */}
-              <button
-                disabled
-                className="w-full py-2.5 rounded-xl text-sm font-semibold opacity-50 cursor-not-allowed bg-slate-700 text-slate-400"
+              <Link
+                href="/billing"
+                className={`w-full py-2.5 rounded-xl text-sm font-semibold text-center transition-colors btn-press ${
+                  plan.popular
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-700 text-white'
+                }`}
               >
-                Coming soon
-              </button>
+                Get {plan.name} — {plan.price}/month
+              </Link>
             </div>
           ))}
         </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppShell from '@/components/AppShell'
 
@@ -18,14 +19,12 @@ const PLANS = [
     id: 'starter',
     name: 'Starter',
     price: '$29',
-    // TODO: Stripe price_id → price_1xxx_starter ($29/mo = 2900 cents)
-    stripeAmount: 2900,
     popular: false,
     tag: '5 replies/mo',
     features: [
       '5 AI-generated replies/month',
       'Professional & friendly drafts',
-      'Manual approve before posting',
+      '1-click approve & publish',
       'Weekly email digest',
       'Email support',
     ],
@@ -34,14 +33,12 @@ const PLANS = [
     id: 'pro',
     name: 'Pro',
     price: '$59',
-    // TODO: Stripe price_id → price_1xxx_pro ($59/mo = 5900 cents)
-    stripeAmount: 5900,
     popular: true,
     tag: 'Unlimited · Auto-post',
     features: [
-      'Unlimited AI-generated replies',
-      'All 4 tone options',
+      'Unlimited AI replies',
       'Auto-reply — zero manual effort',
+      'All 4 tone options',
       'Negative review instant alerts',
       'Priority support',
     ],
@@ -49,16 +46,46 @@ const PLANS = [
 ]
 
 export default function BillingPage() {
-  const [notified, setNotified] = useState<string | null>(null)
+  const router = useRouter()
+  const [loading, setLoading] = useState<string | null>(null)
+  const [error, setError]     = useState<string | null>(null)
 
-  // TODO: Replace handleNotify with Stripe checkout when payment integration is ready
-  function handleNotify(plan: string) {
-    setNotified(plan)
-    setTimeout(() => setNotified(null), 3000)
+  async function handleCheckout(planId: string) {
+    setLoading(planId)
+    setError(null)
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: planId }),
+      })
+
+      if (res.status === 401) {
+        router.push('/login?redirect=/billing')
+        return
+      }
+
+      if (res.status === 400) {
+        const data = await res.json() as { error?: string }
+        setError(data.error ?? 'Already subscribed')
+        setLoading(null)
+        return
+      }
+
+      const data = await res.json() as { url?: string; error?: string }
+      if (!res.ok || !data.url) {
+        throw new Error(data.error ?? 'Checkout failed — try again')
+      }
+
+      window.location.href = data.url
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setLoading(null)
+    }
   }
 
   return (
-    <AppShell businessName="Demo Coffee Shop">
+    <AppShell>
       <div className="max-w-3xl mx-auto px-4 py-8">
 
         <div className="mb-8">
@@ -66,28 +93,11 @@ export default function BillingPage() {
           <p className="text-slate-400 text-sm mt-1">Manage your plan and subscription.</p>
         </div>
 
-        {/* Current plan */}
-        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 mb-5 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Current plan</p>
-            <p className="text-base font-bold text-white">Free</p>
-            <p className="text-xs text-slate-400 mt-0.5">5 reviews/month · Upgrade to unlock unlimited</p>
+        {error && (
+          <div className="mb-5 bg-red-500/15 border border-red-500/30 rounded-xl px-4 py-3 text-sm text-red-300 fade-in">
+            {error}
           </div>
-          <span className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-700 text-slate-400 border border-slate-600">
-            Free plan
-          </span>
-        </div>
-
-        {/* Payment coming soon notice */}
-        <div className="mb-7 bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3.5 flex items-start gap-3">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 mt-0.5 text-blue-400"><circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5"/><path d="M8 5v3.5M8 11h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-          <div>
-            <p className="text-sm font-semibold text-blue-300">Paid plans launching soon</p>
-            <p className="text-xs text-blue-400/70 mt-0.5 leading-relaxed">
-              Sign up now to lock in your pricing. You'll receive an email the moment payment goes live.
-            </p>
-          </div>
-        </div>
+        )}
 
         {/* Plan cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-8">
@@ -119,30 +129,25 @@ export default function BillingPage() {
                   </li>
                 ))}
               </ul>
-              {/* TODO: Wire Stripe checkout →
-                   fetch('/api/stripe/checkout', {
-                     method: 'POST',
-                     body: JSON.stringify({ planId: plan.id, amount: plan.stripeAmount })
-                   })
-                   Starter = $29/mo (2900 cents), Pro = $59/mo (5900 cents) */}
               <button
-                onClick={() => handleNotify(plan.id)}
-                className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors btn-press ${
-                  notified === plan.id
-                    ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
-                    : plan.popular
+                onClick={() => handleCheckout(plan.id)}
+                disabled={loading !== null}
+                className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors btn-press disabled:opacity-60 ${
+                  plan.popular
                     ? 'bg-blue-600 text-white'
                     : 'bg-slate-700 text-white'
                 }`}
               >
-                {notified === plan.id ? '✓ You\'ll be notified' : `Get ${plan.name} — ${plan.price}/mo`}
+                {loading === plan.id
+                  ? 'Opening checkout…'
+                  : `Get ${plan.name} — ${plan.price}/month`}
               </button>
             </div>
           ))}
         </div>
 
         <div className="text-center space-y-1.5">
-          <p className="text-xs text-slate-500">Cancel anytime. Billed monthly. No long-term contracts.</p>
+          <p className="text-xs text-slate-500">Cancel anytime. Billed monthly. Secured by Stripe.</p>
           <p className="text-xs text-slate-600">
             Questions?{' '}
             <Link href="/contact" className="text-slate-400 transition-colors">

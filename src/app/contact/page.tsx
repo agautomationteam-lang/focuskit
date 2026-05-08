@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import ReplyKitLogo from '@/components/ReplyKitLogo'
 
 export default function ContactPage() {
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
@@ -37,7 +38,7 @@ export default function ContactPage() {
     <div className="min-h-screen bg-[#0b0d14] flex flex-col items-center justify-center px-4 py-16">
 
       <Link href="/" className="flex items-center gap-2 mb-12">
-        <span className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">R</span>
+        <ReplyKitLogo size="sm" />
         <span className="font-bold text-white text-[15px] tracking-tight">ReplyKit</span>
       </Link>
 

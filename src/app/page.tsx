@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 import ReplyKitLogo from '@/components/ReplyKitLogo'
 
 function Check() {
@@ -22,7 +24,10 @@ const TESTIMONIALS = [
   { name: 'Priya N.', biz: 'Bloom Beauty Salon', text: 'I used to spend 30 minutes a week writing replies. Now it\'s zero. And the replies are better than what I wrote myself.' },
 ]
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) redirect('/dashboard')
   return (
     <div className="min-h-screen bg-[#0b0d14] text-slate-300">
 

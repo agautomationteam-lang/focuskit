@@ -1,8 +1,10 @@
 import OpenAI from 'openai'
 
-export const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-})
+let _client: OpenAI | null = null
+function client(): OpenAI {
+  if (!_client) _client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
+  return _client
+}
 
 // ─── Recommendation logic ────────────────────────────────────────────────────
 // 4–5★ → friendly  (match the positive energy)
@@ -120,7 +122,7 @@ export async function generateDraft(params: GenerateParams): Promise<string> {
   )
   const userPrompt = buildUserPrompt(params)
 
-  const completion = await openai.chat.completions.create({
+  const completion = await client().chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
       { role: 'system', content: systemPrompt },

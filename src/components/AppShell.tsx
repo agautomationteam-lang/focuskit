@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import ReplyKitLogo from './ReplyKitLogo'
+import { createClient } from '@/lib/supabase/client'
 
 /* ── Desktop sidebar nav ────────────────────────────────────────────────── */
 const SIDEBAR_NAV = [
@@ -151,9 +152,11 @@ interface Props {
 
 export default function AppShell({ children, businessName }: Props) {
   const pathname = usePathname()
+  const router = useRouter()
 
-  // Track which dashboard sub-tab is active (Home vs Reviews)
   const [lastDashTab, setLastDashTab] = useState<string>('home')
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
+  const [isOnline, setIsOnline] = useState(true)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -163,6 +166,32 @@ export default function AppShell({ children, businessName }: Props) {
       : (localStorage.getItem('rk_last_dash_tab') ?? 'home')
     setLastDashTab(saved)
   }, [pathname])
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine)
+    const online  = () => setIsOnline(true)
+    const offline = () => setIsOnline(false)
+    window.addEventListener('online',  online)
+    window.addEventListener('offline', offline)
+    return () => { window.removeEventListener('online', online); window.removeEventListener('offline', offline) }
+  }, [])
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase.from('users').select('subscription_status').eq('id', user.id).single()
+        .then(({ data }) => { if (data) setSubscriptionStatus(data.subscription_status) })
+    })
+  }, [])
+
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    const rkKeys = Object.keys(localStorage).filter(k => k.startsWith('rk_'))
+    rkKeys.forEach(k => localStorage.removeItem(k))
+    router.push('/')
+  }
 
   function tabIsActive(tab: typeof BOTTOM_TABS[number]) {
     if (tab.id === 'home') return pathname === '/dashboard' && lastDashTab === 'home'
@@ -176,6 +205,10 @@ export default function AppShell({ children, businessName }: Props) {
       setLastDashTab(tab.id)
     }
   }
+
+  const isPro     = subscriptionStatus === 'active'
+  const isStarter = subscriptionStatus === 'starter'
+  const planLabel = isPro ? 'Pro plan' : isStarter ? 'Starter plan' : 'Free plan · 5 review limit'
 
   return (
     <div className="min-h-screen flex bg-[#0b0d14]">
@@ -210,16 +243,27 @@ export default function AppShell({ children, businessName }: Props) {
         </nav>
 
         <div className="px-3 py-4 border-t border-slate-800 space-y-2">
-          <Link
-            href="/billing"
-            className="ripple flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg bg-blue-600/15 border border-blue-500/25 text-blue-400 text-xs font-semibold"
+          {!isPro && (
+            <Link
+              href="/billing"
+              className="ripple flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg bg-blue-600/15 border border-blue-500/25 text-blue-400 text-xs font-semibold"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M6 10V2M2 6l4-4 4 4"/>
+              </svg>
+              Upgrade to Pro
+            </Link>
+          )}
+          <p className="text-[10px] text-slate-600 px-1 text-center">{planLabel}</p>
+          <button
+            onClick={handleLogout}
+            className="ripple flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-lg text-slate-500 text-xs font-medium transition-colors active:text-red-400"
           >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M6 10V2M2 6l4-4 4 4"/>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M7.5 1.5H10a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7.5M5 8.5 7.5 6 5 3.5M7.5 6H1"/>
             </svg>
-            Upgrade to Pro
-          </Link>
-          <p className="text-[10px] text-slate-600 px-1 text-center">Free plan · 5 review limit</p>
+            Log out
+          </button>
         </div>
       </aside>
 
@@ -268,6 +312,13 @@ export default function AppShell({ children, businessName }: Props) {
           })}
         </div>
       </nav>
+
+      {/* ── Offline Banner ────────────────────────────────────────────── */}
+      {!isOnline && (
+        <div className="fixed top-0 inset-x-0 z-50 bg-amber-500/95 text-amber-950 text-xs font-semibold text-center py-2 px-4">
+          No internet connection — changes may not save
+        </div>
+      )}
 
       {/* ── Content Area (keyed on pathname for page transition) ──────── */}
       <div className="flex-1 lg:ml-52 min-h-screen app-content-mobile">
