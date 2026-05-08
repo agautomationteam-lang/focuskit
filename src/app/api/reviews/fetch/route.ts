@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   const FREE_LIMIT = 5
 
   let rawReviews: GBPReview[]
-  let source = 'stub'
+  let source = 'live'
 
   if (business.google_access_token && business.google_place_id) {
     console.log(`[Reviews] Fetching reviews for location: ${business.google_place_id}`)

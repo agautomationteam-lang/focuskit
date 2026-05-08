@@ -122,7 +122,7 @@ export default function IntegrationsPage() {
   const categories = [...new Set(INTEGRATIONS.map(i => i.category))]
 
   return (
-    <AppShell businessName="Demo Coffee Shop">
+    <AppShell>
       <div className="max-w-3xl mx-auto px-4 py-8">
 
         <div className="mb-8">

@@ -5,7 +5,7 @@ import { createMagicLink } from '@/lib/magic-link'
 import { log } from '@/lib/logger'
 import { enqueue } from './queue'
 
-type StubReview = {
+type GoogleReview = {
   google_review_id: string
   reviewer_name: string
   reviewer_photo_url: null
@@ -14,7 +14,7 @@ type StubReview = {
   review_date: string
 }
 
-async function fetchGoogleReviews(placeId: string): Promise<StubReview[]> {
+async function fetchGoogleReviews(placeId: string): Promise<GoogleReview[]> {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY
   if (!apiKey) return []
 
