@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion'
-import { pickTemplate } from './demoData'
 
 interface ResponseData {
   id: string
@@ -108,8 +107,6 @@ export default function ReviewCard({ review, demo = false, onPublish, onAddToast
   const [responseData, setResponseData]   = useState(resp)
   const [loading, setLoading]             = useState<string | null>(null)
   const [error, setError]                 = useState<string | null>(null)
-  const [variantIndex, setVariantIndex]   = useState(2)
-  const [reposted, setReposted]           = useState(false)
   const [dismissed, setDismissed]         = useState(false)
 
   // ── Framer-motion values (driven by touch, zero re-renders during swipe) ─
@@ -137,7 +134,8 @@ export default function ReviewCard({ review, demo = false, onPublish, onAddToast
     if (!isPosted && (dx > SWIPE_THRESHOLD || vx > VELOCITY_THRESHOLD)) {
       void triggerHaptic('medium')
       animate(x, 0, { type: 'spring', stiffness: 400, damping: 35 })
-      void handlePublishDemo()
+      if (isApproved) void handlePublishApi()
+      else if (responseData && editedText.trim()) void handleApproveAndPublish()
     } else if (dx < -SWIPE_THRESHOLD || vx < -VELOCITY_THRESHOLD) {
       void triggerHaptic('light')
       animate(x, -520, {
@@ -218,49 +216,6 @@ export default function ReviewCard({ review, demo = false, onPublish, onAddToast
     if (!responseData) return
     setSelectedDraft(draft)
     setEditedText(draft === 'professional' ? responseData.draft_professional : responseData.draft_friendly)
-  }
-
-  // ── Demo handlers ────────────────────────────────────────────────────────
-  function handleRegenerateDemo() {
-    const next = variantIndex + 1
-    setVariantIndex(next)
-    const pro = pickTemplate(review.rating, review.reviewer_name, next)
-    const fri = pickTemplate(review.rating, review.reviewer_name, next + 1)
-    const updated = {
-      ...(responseData ?? { id: 'local', selected_draft: null, final_text: null, status: 'draft' }),
-      draft_professional: pro,
-      draft_friendly: fri,
-    }
-    setResponseData(updated as ResponseData)
-    setEditedText(selectedDraft === 'professional' ? pro : fri)
-    onAddToast?.('New reply generated', 'info')
-  }
-
-  async function handlePublishDemo() {
-    if (!editedText.trim()) return
-    setLoading('publish')
-    await new Promise(r => setTimeout(r, 900))
-    setReviewStatus('posted')
-    setResponseData(prev => prev ? { ...prev, final_text: editedText.trim(), status: 'posted' } : prev)
-    setLoading(null)
-    onPublish?.(review.id, editedText.trim())
-    void triggerHaptic('medium')
-    onAddToast?.(
-      isUrgent
-        ? `Damage controlled — ${review.reviewer_name.split(' ')[0]}'s reply posted ✓`
-        : 'Reply published to Google ✓',
-      'success'
-    )
-  }
-
-  async function handleRepostDemo() {
-    setLoading('repost')
-    await new Promise(r => setTimeout(r, 700))
-    setLoading(null)
-    setReposted(true)
-    void triggerHaptic('light')
-    onAddToast?.('Reposted to Google ✓', 'success')
-    setTimeout(() => setReposted(false), 2500)
   }
 
   // ── API handlers ─────────────────────────────────────────────────────────
@@ -428,15 +383,6 @@ export default function ReviewCard({ review, demo = false, onPublish, onAddToast
           {responseData?.final_text && (
             <p className="text-sm text-emerald-300 leading-relaxed">{responseData.final_text}</p>
           )}
-          {demo && (
-            <button
-              onClick={handleRepostDemo}
-              disabled={isDisabled}
-              className="ripple mt-2.5 text-xs text-emerald-400/60 disabled:opacity-40 transition-colors btn-press min-h-[44px] flex items-center"
-            >
-              {loading === 'repost' ? 'Reposting…' : reposted ? '✓ Reposted' : '↻ Repost to Google'}
-            </button>
-          )}
         </div>
 
       ) : responseData ? (
@@ -496,31 +442,14 @@ export default function ReviewCard({ review, demo = false, onPublish, onAddToast
           {loading !== 'generate' && (
             <div className="flex items-center justify-between">
               <button
-                onClick={demo ? handleRegenerateDemo : handleGenerate}
+                onClick={handleGenerate}
                 disabled={isDisabled}
                 className="ripple text-xs text-slate-500 disabled:opacity-40 transition-colors btn-press min-h-[44px] px-2 flex items-center"
               >
                 ↻ Regenerate
               </button>
 
-              {demo ? (
-                <button
-                  onClick={handlePublishDemo}
-                  disabled={isDisabled || !editedText.trim()}
-                  className={`ripple px-5 py-2.5 min-h-[48px] rounded-xl text-xs font-semibold disabled:opacity-50 transition-colors shadow-sm btn-press ${
-                    isUrgent
-                      ? 'bg-red-600 text-white'
-                      : 'bg-blue-600 text-white'
-                  }`}
-                >
-                  {loading === 'publish' ? (
-                    <span className="flex items-center gap-1.5">
-                      <span className="animate-spin inline-block text-xs">↻</span>
-                      Posting…
-                    </span>
-                  ) : isUrgent ? '⚡ Reply & protect' : '✓ Approve & Publish'}
-                </button>
-              ) : isApproved ? (
+              {isApproved ? (
                 <button
                   onClick={handlePublishApi}
                   disabled={isDisabled}
@@ -532,9 +461,16 @@ export default function ReviewCard({ review, demo = false, onPublish, onAddToast
                 <button
                   onClick={handleApproveAndPublish}
                   disabled={isDisabled || !editedText.trim()}
-                  className="ripple bg-blue-600 text-white px-5 py-2.5 min-h-[48px] rounded-xl text-xs font-semibold disabled:opacity-50 transition-colors shadow-sm btn-press"
+                  className={`ripple px-5 py-2.5 min-h-[48px] rounded-xl text-xs font-semibold disabled:opacity-50 transition-colors shadow-sm btn-press ${
+                    isUrgent ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'
+                  }`}
                 >
-                  {loading === 'publish' ? 'Publishing…' : '✓ Approve & Publish'}
+                  {loading === 'publish' ? (
+                    <span className="flex items-center gap-1.5">
+                      <span className="animate-spin inline-block text-xs">↻</span>
+                      Publishing…
+                    </span>
+                  ) : isUrgent ? '⚡ Reply & protect' : '✓ Approve & Publish'}
                 </button>
               )}
             </div>
@@ -543,7 +479,7 @@ export default function ReviewCard({ review, demo = false, onPublish, onAddToast
 
       ) : (
         <button
-          onClick={demo ? handleRegenerateDemo : handleGenerate}
+          onClick={handleGenerate}
           disabled={isDisabled}
           className={`ripple w-full border-2 border-dashed rounded-xl py-4 min-h-[56px] text-sm disabled:opacity-50 transition-colors font-medium btn-press ${
             isUrgent

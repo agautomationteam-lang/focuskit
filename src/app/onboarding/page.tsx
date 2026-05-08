@@ -55,24 +55,43 @@ export default function OnboardingPage() {
     setStep(s => s + 1)
   }
 
-  function completeOnboarding() {
+  async function completeOnboarding() {
     const name = yourName.trim() || businessType
     localStorage.setItem('rk_onboarding_done', 'true')
     localStorage.setItem('rk_business_name', name)
     localStorage.setItem('rk_business_type', businessType)
     localStorage.setItem('rk_tone', tone)
     localStorage.setItem('rk_show_welcome', 'true')
-    // TODO: persist to Supabase when real auth is wired up
-    // await supabase.from('businesses').upsert({ name, type: businessType, tone })
+    try {
+      await fetch('/api/onboarding/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, tone }),
+      })
+    } catch {
+      // silently continue — user may not be authenticated yet
+    }
     router.push('/dashboard')
   }
 
   async function handleGoogleConnect() {
     setConnecting(true)
-    await new Promise(r => setTimeout(r, 1800))
-    setConnected(true)
-    setConnecting(false)
-    setShowGoogleModal(false)
+    const name = yourName.trim() || businessType
+    localStorage.setItem('rk_onboarding_done', 'true')
+    localStorage.setItem('rk_business_name', name)
+    localStorage.setItem('rk_business_type', businessType)
+    localStorage.setItem('rk_tone', tone)
+    localStorage.setItem('rk_show_welcome', 'true')
+    try {
+      await fetch('/api/onboarding/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, tone }),
+      })
+    } catch {
+      // continue — unauthenticated visitors won't have a session
+    }
+    window.location.href = '/api/auth/google'
   }
 
   const canAdvance = step === 1 ? !!businessType
@@ -224,9 +243,15 @@ export default function OnboardingPage() {
               <div className="bg-slate-800/70 border border-slate-700/50 rounded-2xl p-6 shadow-lg">
                 <p className="text-[11px] font-bold text-blue-400 uppercase tracking-widest mb-3">Step 4 of {TOTAL_STEPS}</p>
                 <h2 className="text-lg font-bold text-white mb-1">Connect Google Business</h2>
-                <p className="text-slate-400 text-sm mb-5">
+                <p className="text-slate-400 text-sm mb-4">
                   Link your listing so ReplyKit can read reviews and post replies automatically.
                 </p>
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2.5 mb-4">
+                  <p className="text-xs text-amber-300 leading-relaxed">
+                    <strong>Note:</strong> Google verification is pending. If you see an &apos;access blocked&apos; error, email{' '}
+                    <span className="font-semibold">support@replykit.com</span> to be added as a tester.
+                  </p>
+                </div>
 
                 {connected ? (
                   <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-4 mb-5 flex items-center gap-3 scale-pop">

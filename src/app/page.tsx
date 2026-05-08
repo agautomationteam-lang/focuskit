@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import MobileRedirect from './mobile-redirect'
+import ReplyKitLogo from '@/components/ReplyKitLogo'
 
 function Check() {
   return (
@@ -25,14 +25,12 @@ const TESTIMONIALS = [
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#0b0d14] text-slate-300">
-      {/* Redirect mobile visitors straight to dashboard */}
-      <MobileRedirect />
 
-      {/* ── Desktop Nav only ─────────────────────────── */}
+      {/* ── Nav ──────────────────────────────────────── */}
       <nav className="sticky top-0 z-20 bg-[#0b0d14]/90 backdrop-blur border-b border-slate-800/60 px-4 py-3.5">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <span className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">R</span>
+            <ReplyKitLogo size="sm" />
             <span className="font-bold text-white text-[15px] tracking-tight">ReplyKit</span>
           </div>
           <div className="flex items-center gap-3">
@@ -57,23 +55,24 @@ export default function LandingPage() {
           Now with AI auto-reply
         </div>
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white tracking-tight leading-[1.1] mb-6 max-w-3xl mx-auto">
-          Never lose a customer to a bad review again
+          AI Replies to Google Reviews — Automatically
         </h1>
-        <p className="text-lg sm:text-xl text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed">
+        <p className="text-lg sm:text-xl text-slate-400 mb-8 max-w-2xl mx-auto leading-relaxed">
           ReplyKit automatically generates and posts professional replies to your Google reviews —
           turning bad reviews into second chances, in seconds.
         </p>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8 text-sm text-slate-400">
+          <span className="flex items-center gap-2"><Check/> Auto-reply to every Google review in seconds</span>
+          <span className="flex items-center gap-2"><Check/> Professional &amp; friendly tone options</span>
+          <span className="flex items-center gap-2"><Check/> Protects your reputation 24/7</span>
+        </div>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-14">
           <Link href="/signup" className="w-full sm:w-auto bg-blue-600 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-blue-500 transition-colors shadow-lg text-[15px]">
-            Start free — no credit card
+            Get Started Free
           </Link>
-          <Link href="/dashboard" className="w-full sm:w-auto border border-slate-700 text-slate-300 font-semibold px-8 py-3.5 rounded-xl hover:border-slate-500 hover:text-white transition-colors text-[15px]">
-            See live demo →
+          <Link href="/login" className="w-full sm:w-auto border border-slate-700 text-slate-300 font-semibold px-8 py-3.5 rounded-xl hover:border-slate-500 hover:text-white transition-colors text-[15px]">
+            Sign In →
           </Link>
-          <a href="/ReplyKit.apk" download="ReplyKit.apk" className="w-full sm:w-auto flex items-center justify-center gap-2 border border-emerald-700/60 text-emerald-400 font-semibold px-8 py-3.5 rounded-xl hover:border-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-300 transition-colors text-[15px]">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M4 8l4 4 4-4M2 14h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            Download Android APK
-          </a>
         </div>
 
         {/* Hero mock */}
@@ -234,11 +233,10 @@ export default function LandingPage() {
       <footer className="border-t border-slate-800 py-8 px-4">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="w-6 h-6 rounded-md bg-blue-600 flex items-center justify-center text-white font-bold text-xs">R</span>
+            <ReplyKitLogo size="sm" />
             <span className="font-bold text-white text-sm">ReplyKit</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-slate-500">
-            <Link href="/dashboard" className="hover:text-slate-300 transition-colors">Demo</Link>
             <Link href="/billing"   className="hover:text-slate-300 transition-colors">Pricing</Link>
             <Link href="/contact"   className="hover:text-slate-300 transition-colors">Contact</Link>
             <Link href="/login"     className="hover:text-slate-300 transition-colors">Sign in</Link>

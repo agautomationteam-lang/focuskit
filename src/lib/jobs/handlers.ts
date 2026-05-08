@@ -5,64 +5,26 @@ import { createMagicLink } from '@/lib/magic-link'
 import { log } from '@/lib/logger'
 import { enqueue } from './queue'
 
-// ─── Stub reviews (used when Google Places API key is not configured) ─────────
-
-const STUB_REVIEWS = [
-  {
-    google_review_id: 'stub_001',
-    reviewer_name: 'Sarah Mitchell',
-    reviewer_photo_url: null as null,
-    rating: 5,
-    text: 'Absolutely loved this place! The service was incredible and everything exceeded my expectations. Will definitely be back soon.',
-    review_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    google_review_id: 'stub_002',
-    reviewer_name: 'James Rodriguez',
-    reviewer_photo_url: null as null,
-    rating: 2,
-    text: 'Waited nearly an hour and the order came out wrong. The staff was apologetic but the manager never came by to check on us. Disappointed.',
-    review_date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    google_review_id: 'stub_003',
-    reviewer_name: 'Emma Thompson',
-    reviewer_photo_url: null as null,
-    rating: 4,
-    text: 'Great experience overall! Slightly long wait but the quality made up for it. The staff was friendly and accommodating.',
-    review_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    google_review_id: 'stub_004',
-    reviewer_name: 'Michael Chang',
-    reviewer_photo_url: null as null,
-    rating: 1,
-    text: 'Terrible experience from start to finish. Will not be returning and would not recommend to anyone.',
-    review_date: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    google_review_id: 'stub_005',
-    reviewer_name: 'Lisa Patterson',
-    reviewer_photo_url: null as null,
-    rating: 5,
-    text: 'Best experience I have had in a long time! Everything was perfect — quality, speed, and friendliness. Highly recommend!',
-    review_date: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-]
-
-type StubReview = typeof STUB_REVIEWS[number]
+type StubReview = {
+  google_review_id: string
+  reviewer_name: string
+  reviewer_photo_url: null
+  rating: number
+  text: string
+  review_date: string
+}
 
 async function fetchGoogleReviews(placeId: string): Promise<StubReview[]> {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY
-  if (!apiKey) return STUB_REVIEWS
+  if (!apiKey) return []
 
   const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=reviews&key=${apiKey}`
   const res = await fetch(url)
-  if (!res.ok) return STUB_REVIEWS
+  if (!res.ok) return []
 
   const data = await res.json()
   const reviews = data.result?.reviews
-  if (!Array.isArray(reviews) || reviews.length === 0) return STUB_REVIEWS
+  if (!Array.isArray(reviews) || reviews.length === 0) return []
 
   return reviews.map((r: {
     author_name: string
@@ -100,7 +62,7 @@ export async function handleFetchReviews(payload: Record<string, unknown>): Prom
 
   const rawReviews = business.google_place_id
     ? await fetchGoogleReviews(business.google_place_id)
-    : STUB_REVIEWS
+    : []
 
   const toInsert = rawReviews.map(r => ({
     business_id:       businessId,
