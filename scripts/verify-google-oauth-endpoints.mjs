@@ -54,7 +54,7 @@ assert.match(
 
 assert.match(
   fetchReviews,
-  /https:\/\/mybusinessbusinessinformation\.googleapis\.com\/v1\/\$\{accountName\}\/locations\?readMask=name,title/,
+  /https:\/\/mybusinessbusinessinformation\.googleapis\.com\/v1\/\$\{accountName\}\/locations\?readMask=name,title,storefrontAddress/,
   'Review fetch must call the Business Information locations endpoint with readMask',
 )
 

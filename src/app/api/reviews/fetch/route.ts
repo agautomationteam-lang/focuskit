@@ -12,6 +12,7 @@ interface GBPAccount {
 interface GBPLocation {
   name: string
   title?: string
+  storefrontAddress?: unknown
 }
 
 interface GBPReview {
@@ -119,7 +120,7 @@ async function fetchAllReviews(accessToken: string) {
     console.log('[Reviews] Fetching locations for account:', accountName)
 
     const locationsData = await googleGet<{ locations?: GBPLocation[] }>(
-      `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=name,title`,
+      `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=name,title,storefrontAddress`,
       accessToken,
     )
     const locations = locationsData.locations ?? []

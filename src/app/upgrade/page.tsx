@@ -34,7 +34,7 @@ const PLANS = [
       'Unlimited reviews after that',
       'Pro & friendly drafts',
       '1-click publish',
-      'Weekly email digest',
+      'Weekly digest',
     ],
   },
   {

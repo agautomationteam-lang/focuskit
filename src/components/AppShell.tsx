@@ -208,7 +208,7 @@ export default function AppShell({ children, businessName }: Props) {
 
   const isPro     = subscriptionStatus === 'active'
   const isStarter = subscriptionStatus === 'starter'
-  const planLabel = isPro ? 'Pro plan' : isStarter ? 'Starter plan' : 'Free plan · 5 review limit'
+  const planLabel = isPro ? 'Pro plan' : isStarter ? 'Starter plan' : 'Free plan · 5 reviews/month'
 
   return (
     <div className="min-h-dvh flex bg-[#0b0d14]">

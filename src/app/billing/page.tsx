@@ -20,7 +20,7 @@ const PLANS = [
     name: 'Free',
     price: '$0',
     popular: false,
-    tag: '5 reviews/mo',
+    tag: '5 reviews/month',
     features: [
       '5 reviews/month',
       'AI-drafted replies',
@@ -38,7 +38,7 @@ const PLANS = [
       'Unlimited reviews after that',
       'Pro & friendly drafts',
       '1-click publish',
-      'Weekly email digest',
+      'Weekly digest',
     ],
   },
   {
@@ -46,7 +46,7 @@ const PLANS = [
     name: 'Pro',
     price: '$59',
     popular: true,
-    tag: 'Unlimited · Auto-post',
+    tag: 'Unlimited AI replies',
     features: [
       'Unlimited AI replies',
       'Auto-reply enabled',
