@@ -2,8 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 const STAR_MAP: Record<string, number> = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 }
-const API_NOT_ENABLED_MESSAGE =
-  'Google Business Profile API not enabled. Please contact agautomationteam@gmail.com'
+const API_FORBIDDEN_MESSAGE =
+  'Missing API permissions - contact agautomationteam@gmail.com'
 
 interface GBPAccount {
   name: string
@@ -33,7 +33,8 @@ class GoogleApiError extends Error {
 }
 
 function parseGoogleError(status: number, body: string) {
-  if (status === 403) return API_NOT_ENABLED_MESSAGE
+  if (status === 401) return 'Google token expired - please reconnect Google Business'
+  if (status === 403) return API_FORBIDDEN_MESSAGE
 
   try {
     const parsed = JSON.parse(body) as { error?: { message?: string }; message?: string }
@@ -44,14 +45,18 @@ function parseGoogleError(status: number, body: string) {
 }
 
 async function googleGet<T>(url: string, accessToken: string): Promise<T> {
-  console.log('[Reviews] Google GET:', url)
+  console.log('[Reviews] Google GET request URL:', url)
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
   const body = await res.text()
+  console.log('[Reviews] Google GET response:', res.status, body)
 
   if (!res.ok) {
     const message = parseGoogleError(res.status, body)
+    if (res.status === 404) {
+      console.log('[Reviews] Google API 404 URL:', url)
+    }
     console.log('[Reviews] Google API failed:', res.status, message)
     throw new GoogleApiError(res.status, message)
   }
@@ -73,6 +78,7 @@ async function callRefreshToken(refreshToken: string): Promise<string> {
     }),
   })
   const body = await res.text()
+  console.log('[Reviews] Refresh token response:', res.status, body)
 
   if (!res.ok) {
     const message = parseGoogleError(res.status, body)
@@ -109,19 +115,21 @@ async function fetchAllReviews(accessToken: string) {
   let firstBusinessTitle = ''
 
   for (const account of accounts) {
-    const accountId = idFromName(account.name, 'accounts')
-    console.log('[Reviews] Fetching locations for account:', accountId)
+    const accountName = account.name
+    console.log('[Reviews] Fetching locations for account:', accountName)
 
     const locationsData = await googleGet<{ locations?: GBPLocation[] }>(
-      `https://mybusiness.googleapis.com/v1/accounts/${accountId}/locations`,
+      `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=name,title`,
       accessToken,
     )
     const locations = locationsData.locations ?? []
-    console.log('[Reviews] Locations found for account:', accountId, locations.length)
+    console.log('[Reviews] Locations found for account:', accountName, locations.length)
 
     for (const location of locations) {
-      const locationId = idFromName(location.name, 'locations')
-      const locationPath = `accounts/${accountId}/locations/${locationId}`
+      const locationName = location.name.startsWith('accounts/')
+        ? location.name
+        : `${accountName}/${location.name}`
+      const locationPath = locationName
       if (!firstLocationPath) {
         firstLocationPath = locationPath
         firstAccountName = account.name
@@ -130,7 +138,7 @@ async function fetchAllReviews(accessToken: string) {
 
       console.log('[Reviews] Fetching reviews for location:', locationPath)
       const reviewsData = await googleGet<{ reviews?: GBPReview[] }>(
-        `https://mybusiness.googleapis.com/v1/accounts/${accountId}/locations/${locationId}/reviews`,
+        `https://mybusiness.googleapis.com/v4/${locationName}/reviews`,
         accessToken,
       )
       const locationReviews = reviewsData.reviews ?? []
@@ -205,7 +213,9 @@ export async function POST(request: Request) {
         }
         fetched = await fetchAllReviews(accessToken)
       } catch (refreshErr) {
-        const message = refreshErr instanceof Error ? refreshErr.message : 'Google token expired'
+        const message = refreshErr instanceof Error
+          ? refreshErr.message
+          : 'Google token expired - please reconnect Google Business'
         console.log('[Reviews] Refresh/retry failed:', message)
         return NextResponse.json({ error: message, needsReconnect: true }, { status: 401 })
       }

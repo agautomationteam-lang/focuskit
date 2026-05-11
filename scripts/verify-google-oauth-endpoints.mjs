@@ -54,20 +54,20 @@ assert.match(
 
 assert.match(
   fetchReviews,
-  /https:\/\/mybusiness\.googleapis\.com\/v1\/accounts\/\$\{accountId\}\/locations/,
-  'Review fetch must call requested account locations endpoint',
+  /https:\/\/mybusinessbusinessinformation\.googleapis\.com\/v1\/\$\{accountName\}\/locations\?readMask=name,title/,
+  'Review fetch must call the Business Information locations endpoint with readMask',
 )
 
 assert.match(
   fetchReviews,
-  /https:\/\/mybusiness\.googleapis\.com\/v1\/accounts\/\$\{accountId\}\/locations\/\$\{locationId\}\/reviews/,
-  'Review fetch must call requested location reviews endpoint',
+  /https:\/\/mybusiness\.googleapis\.com\/v4\/\$\{locationName\}\/reviews/,
+  'Review fetch must call the v4 reviews endpoint using the full location resource name',
 )
 
 assert.match(
   fetchReviews,
-  /Google Business Profile API not enabled\. Please contact agautomationteam@gmail\.com/,
-  'Review fetch must return the required 403 API-not-enabled message',
+  /Missing API permissions - contact agautomationteam@gmail\.com/,
+  'Review fetch must return the required 403 permissions message',
 )
 
 for (const file of filesToScan) {
