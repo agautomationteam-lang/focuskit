@@ -46,11 +46,11 @@ export default function HomeView({
   googleConnected = false,
 }: HomeViewProps) {
   return (
-    <main className="max-w-3xl mx-auto px-4 py-8 space-y-5">
+    <main className="android-screen max-w-3xl mx-auto px-4 py-5 sm:py-8 space-y-4 sm:space-y-5">
 
       {/* Welcome banner (shown once after onboarding) */}
       {showWelcome && (
-        <div className="flex items-start gap-3 bg-blue-600/10 border border-blue-500/20 rounded-xl px-4 py-3.5 slide-in-down">
+        <div className="android-card flex items-start gap-3 px-4 py-3.5 slide-in-down">
           <span className="text-xl leading-none shrink-0 mt-0.5">👋</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-white leading-snug">
@@ -72,15 +72,15 @@ export default function HomeView({
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3 fade-in">
-        <div className="bg-slate-800 border border-slate-700/50 rounded-xl px-3 py-3.5 text-center">
+        <div className="android-card px-3 py-3.5 text-center">
           <p className="text-[22px] font-bold text-white leading-none tabular-nums">{handled}</p>
           <p className="text-xs text-slate-400 mt-1.5">Replies sent</p>
         </div>
-        <div className="bg-slate-800 border border-slate-700/50 rounded-xl px-3 py-3.5 text-center">
+        <div className="android-card px-3 py-3.5 text-center">
           <p className="text-[22px] font-bold text-emerald-400 leading-none tabular-nums">{negRecovered}</p>
           <p className="text-xs text-slate-400 mt-1.5">Bad reviews saved</p>
         </div>
-        <div className="bg-slate-800 border border-slate-700/50 rounded-xl px-3 py-3.5 text-center">
+        <div className="android-card px-3 py-3.5 text-center">
           <p className="text-[22px] font-bold text-blue-400 leading-none tabular-nums">
             {avgReplyTime === '--' ? '--' : `${avgReplyTime}s`}
           </p>
@@ -89,7 +89,7 @@ export default function HomeView({
       </div>
 
       {/* Hero card */}
-      <div className="bg-slate-800/50 border border-slate-700/40 rounded-2xl px-5 py-6 fade-in">
+      <div className="android-card px-5 py-6 fade-in">
         <div className="flex items-start gap-4 mb-4">
           <div
             className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
@@ -122,7 +122,7 @@ export default function HomeView({
           <div>
             <a
               href="/api/auth/google"
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold shadow-sm mb-2"
+              className="android-primary-action w-full flex items-center justify-center gap-2 text-sm shadow-sm mb-2"
               style={{ background: 'linear-gradient(135deg, #4F46E5 0%, #00D9FF 100%)', color: '#fff' }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="white" opacity="0.9">
@@ -138,20 +138,26 @@ export default function HomeView({
             </p>
           </div>
         ) : (
-          <button
-            onClick={onGoToReviews}
-            className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl text-sm font-semibold shadow-sm transition-colors"
-          >
-            {pending > 0
-              ? `Reply to ${pending} review${pending !== 1 ? 's' : ''} →`
-              : 'Open Review Inbox →'}
-          </button>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <p className="text-xs font-semibold text-emerald-300">Google Business connected · real reviews enabled</p>
+            </div>
+            <button
+              onClick={onGoToReviews}
+              className="android-primary-action w-full flex items-center justify-center gap-2 bg-blue-600 text-white text-sm shadow-sm transition-colors"
+            >
+              {pending > 0
+                ? `Reply to ${pending} review${pending !== 1 ? 's' : ''} ->`
+                : 'Open Review Inbox ->'}
+            </button>
+          </div>
         )}
       </div>
 
       {/* Recent activity */}
       {activityLog.length > 0 ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden fade-in">
+        <div className="android-card overflow-hidden fade-in">
           <div className="px-4 py-2.5 border-b border-slate-800 flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Recent Activity</span>

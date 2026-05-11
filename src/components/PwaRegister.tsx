@@ -17,9 +17,17 @@ export default function PwaRegister() {
 }
 
 async function initCapacitor() {
+  try {
+    const { Capacitor } = await import('@capacitor/core')
+    if (Capacitor.isNativePlatform()) {
+      document.documentElement.classList.add('capacitor-native')
+    }
+  } catch { /* web - no-op */ }
+
   // Status bar — dark background, light icons
   try {
     const { StatusBar, Style } = await import('@capacitor/status-bar')
+    await StatusBar.setOverlaysWebView({ overlay: false })
     await StatusBar.setStyle({ style: Style.Light })       // light icons on dark bg
     await StatusBar.setBackgroundColor({ color: '#0b0d14' })
   } catch { /* web — no-op */ }

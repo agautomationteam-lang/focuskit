@@ -3,6 +3,13 @@
 :root {
   --background: #0b0d14;
   --foreground: #e2e8f0;
+  color-scheme: dark;
+}
+
+html {
+  background: var(--background);
+  min-height: 100%;
+  overscroll-behavior: none;
 }
 
 body {
@@ -11,6 +18,10 @@ body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-size: 14px; /* minimum 14px globally */
   overflow-x: hidden; /* no horizontal scroll */
+  min-height: 100dvh;
+  margin: 0;
+  overscroll-behavior-y: none;
+  touch-action: manipulation;
 }
 
 textarea { resize: vertical; }
@@ -142,16 +153,29 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .safe-top    { padding-top:    env(safe-area-inset-top,    0px); }
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
-/* ── Mobile topbar: 44px + status bar ──────────────────────────────────── */
-.mobile-topbar-shell { padding-top: env(safe-area-inset-top, 0px); }
+/* ── Mobile topbar: Android app bar + status bar ───────────────────────── */
+.mobile-topbar-shell {
+  padding-top: env(safe-area-inset-top, 0px);
+  background: color-mix(in srgb, #0b0d14 92%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 1px 0 rgba(148, 163, 184, 0.08), 0 8px 28px rgba(0, 0, 0, 0.22);
+}
 
-/* ── Mobile bottom nav: 56px + home indicator ──────────────────────────── */
-.mobile-bottom-nav-shell { padding-bottom: env(safe-area-inset-bottom, 0px); }
+/* ── Mobile bottom nav: Android navigation surface + home indicator ────── */
+.mobile-bottom-nav-shell {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: color-mix(in srgb, #0b0d14 94%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 -1px 0 rgba(148, 163, 184, 0.08), 0 -10px 32px rgba(0, 0, 0, 0.3);
+}
 
 /* ── AppShell content offset ────────────────────────────────────────────── */
 .app-content-mobile {
   padding-top:    calc(2.75rem + env(safe-area-inset-top,    0px));
   padding-bottom: calc(3.5rem  + env(safe-area-inset-bottom, 0px));
+  min-height: 100dvh;
 }
 @media (min-width: 1024px) {
   .app-content-mobile { padding-top: 0; padding-bottom: 0; }
@@ -212,7 +236,33 @@ a, button { -webkit-tap-highlight-color: transparent; }
 /* ── Native card shadow (subtle, not floaty) ────────────────────────────── */
 .native-card {
   box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15);
-  border-radius: 16px;
+  border-radius: 12px;
+}
+
+.android-screen {
+  min-height: calc(100dvh - 6.25rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+}
+
+.android-card {
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgb(30 41 59 / 0.78), rgb(15 23 42 / 0.86));
+  border: 1px solid rgb(51 65 85 / 0.72);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.24);
+}
+
+.android-primary-action {
+  min-height: 52px;
+  border-radius: 14px;
+  font-weight: 700;
+}
+
+.capacitor-native body {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.capacitor-native .app-content-mobile {
+  padding-top: 2.75rem;
 }
 
 /* ── Non-interactive elements: no pointer cursor ────────────────────────── */

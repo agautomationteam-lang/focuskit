@@ -32,23 +32,23 @@ export default async function LandingPage() {
     <div className="min-h-screen bg-[#0b0d14] text-slate-300">
 
       {/* ── Nav ──────────────────────────────────────── */}
-      <nav className="sticky top-0 z-20 bg-[#0b0d14]/90 backdrop-blur border-b border-slate-800/60 px-4 py-3.5">
+      <nav className="sticky top-0 z-20 bg-[#0b0d14]/90 backdrop-blur border-b border-slate-800/60 px-4 py-3.5 mobile-topbar-shell">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
             <ReplyKitLogo size="sm" />
             <span className="font-bold text-white text-[15px] tracking-tight">ReplyKit</span>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/login" className="text-sm text-slate-400 hover:text-white transition-colors font-medium px-2">Sign in</Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link href="/login" className="hidden sm:inline-flex text-sm text-slate-400 hover:text-white transition-colors font-medium px-2">Sign in</Link>
             <a
               href="/ReplyKit.apk"
               download
-              className="flex items-center gap-1.5 text-sm font-semibold border border-slate-600 text-slate-300 px-3.5 py-2 rounded-lg hover:border-slate-400 hover:text-white transition-colors"
+              className="hidden sm:flex items-center gap-1.5 text-sm font-semibold border border-slate-600 text-slate-300 px-3.5 py-2 rounded-lg hover:border-slate-400 hover:text-white transition-colors"
             >
               <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1v8M3 6.5l3.5 3.5 3.5-3.5M1.5 11.5h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
               Android APK
             </a>
-            <Link href="/signup" className="text-sm font-semibold bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-500 transition-colors">Get started</Link>
+            <Link href="/signup" className="android-primary-action inline-flex items-center text-sm font-semibold bg-blue-600 text-white px-4 sm:px-5 py-2 rounded-xl hover:bg-blue-500 transition-colors">Get started</Link>
           </div>
         </div>
       </nav>

@@ -1,6 +1,15 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 
+const GOOGLE_ACCOUNT_MANAGEMENT_URL = 'https://mybusinessaccountmanagement.googleapis.com/v1/accounts'
+const GOOGLE_BUSINESS_INFORMATION_URL = 'https://mybusinessbusinessinformation.googleapis.com/v1'
+
+function normalizeLocationPath(accountName: string, locationName: string) {
+  if (locationName.startsWith('accounts/')) return locationName
+  if (locationName.startsWith('locations/')) return `${accountName}/${locationName}`
+  return `${accountName}/locations/${locationName}`
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
@@ -85,7 +94,7 @@ export async function GET(request: Request) {
   let accountName = ''
   let businessTitle = ''
 
-  const accountsRes = await fetch('https://mybusinessaccounts.googleapis.com/v1/accounts', {
+  const accountsRes = await fetch(GOOGLE_ACCOUNT_MANAGEMENT_URL, {
     headers: { Authorization: `Bearer ${access_token}` },
   })
 
@@ -96,37 +105,44 @@ export async function GET(request: Request) {
     }
 
     if (accounts && accounts.length > 0) {
-      accountName = accounts[0].name // "accounts/123456789"
-      const accId = accountName.replace('accounts/', '')
-      console.log(`[Google OAuth] Found account: ${accountName}`)
+      for (const account of accounts) {
+        accountName = account.name
+        console.log(`[Google OAuth] Found account: ${accountName}`)
 
-      console.log('[Google OAuth] Fetching locations...')
-      const locRes = await fetch(
-        `https://mybusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=name,title`,
-        { headers: { Authorization: `Bearer ${access_token}` } }
-      )
+        console.log('[Google OAuth] Fetching locations...')
+        const locationsUrl =
+          `${GOOGLE_BUSINESS_INFORMATION_URL}/${accountName}/locations?readMask=name,title`
+        const locRes = await fetch(
+          locationsUrl,
+          { headers: { Authorization: `Bearer ${access_token}` } }
+        )
 
-      if (locRes.ok) {
-        const { locations } = await locRes.json() as {
-          locations?: Array<{ name: string; title?: string }>
-        }
-        if (locations && locations.length > 0) {
-          const loc = locations[0]
-          businessTitle = loc.title ?? ''
-          const locId = loc.name.replace('locations/', '')
-          locationPath = `accounts/${accId}/locations/${locId}`
-          console.log(`[Google OAuth] Found location: ${locationPath} (${businessTitle})`)
+        if (locRes.ok) {
+          const { locations } = await locRes.json() as {
+            locations?: Array<{ name: string; title?: string }>
+          }
+          if (locations && locations.length > 0) {
+            const loc = locations[0]
+            businessTitle = loc.title ?? ''
+            locationPath = normalizeLocationPath(accountName, loc.name)
+            console.log(`[Google OAuth] Found location: ${locationPath} (${businessTitle})`)
+            break
+          }
+
+          console.log(`[Google OAuth] No locations found for account ${accountName}`)
         } else {
-          console.log('[Google OAuth] No locations found for this account')
+          const body = await locRes.text().catch(() => '')
+          console.log(`[Google OAuth] Locations fetch failed: ${locRes.status} ${body}`)
         }
-      } else {
-        console.log(`[Google OAuth] Locations fetch failed: ${locRes.status}`)
       }
+
+      if (!locationPath) accountName = ''
     } else {
       console.log('[Google OAuth] No accounts found')
     }
   } else {
-    console.log(`[Google OAuth] Accounts fetch failed: ${accountsRes.status}`)
+    const body = await accountsRes.text().catch(() => '')
+    console.log(`[Google OAuth] Accounts fetch failed: ${accountsRes.status} ${body}`)
   }
 
   // Persist tokens and location to business record
@@ -140,7 +156,11 @@ export async function GET(request: Request) {
     updateData.name = businessTitle
   }
 
-  await supabase.from('businesses').update(updateData).eq('id', biz.id)
+  const { error: updateError } = await supabase.from('businesses').update(updateData).eq('id', biz.id)
+  if (updateError) {
+    console.error(`[Google OAuth] Failed to save Google connection: ${updateError.message}`)
+    return NextResponse.redirect(errorUrl)
+  }
 
   // No Business Profile listing found under this Google account
   if (!locationPath) return NextResponse.redirect(noBusinessUrl)

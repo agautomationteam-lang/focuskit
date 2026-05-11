@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "verify:google-oauth": "node scripts/verify-google-oauth-endpoints.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^6.2.1",

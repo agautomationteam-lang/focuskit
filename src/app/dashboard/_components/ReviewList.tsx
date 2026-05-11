@@ -170,6 +170,7 @@ export default function ReviewList({
   const [ptrActive, setPtrActive]           = useState(false)
   const [showWelcome, setShowWelcome]       = useState(false)
   const [welcomeName, setWelcomeName]       = useState('')
+  const autoFetchAfterConnectRef            = useRef(false)
 
   // ── Pagination & sort ────────────────────────────────────────────────────────
   const [sort, setSort]             = useState<SortType>('newest')
@@ -234,6 +235,12 @@ export default function ReviewList({
         void applySortFetch(saved)
       }
     }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!justConnected || autoFetchAfterConnectRef.current) return
+    autoFetchAfterConnectRef.current = true
+    void handleRefresh()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function dismissWelcome() {
@@ -486,7 +493,7 @@ export default function ReviewList({
           </div>
         ) : (
           <div key="reviews" className="tab-enter">
-            <main className="max-w-3xl mx-auto px-4 py-8">
+            <main className="android-screen max-w-3xl mx-auto px-4 py-5 sm:py-8">
 
               {/* Hero headline */}
               <div className="mb-6 fade-in">

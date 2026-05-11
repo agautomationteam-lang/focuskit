@@ -22,6 +22,8 @@ export interface Business {
   name: string
   google_place_id: string | null
   google_access_token: string | null
+  google_refresh_token: string | null
+  google_account_id: string | null
   tone: BusinessTone
   auto_reply_enabled: boolean
   created_at: string
@@ -38,6 +40,9 @@ export interface Review {
   text: string | null
   review_date: string
   status: ReviewStatus
+  synced_at: string | null
+  replied_at: string | null
+  reply_text: string | null
   created_at: string
   updated_at: string
 }

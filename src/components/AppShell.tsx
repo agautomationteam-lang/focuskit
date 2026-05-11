@@ -211,7 +211,7 @@ export default function AppShell({ children, businessName }: Props) {
   const planLabel = isPro ? 'Pro plan' : isStarter ? 'Starter plan' : 'Free plan · 5 review limit'
 
   return (
-    <div className="min-h-screen flex bg-[#0b0d14]">
+    <div className="min-h-dvh flex bg-[#0b0d14]">
 
       {/* ── Desktop Sidebar ──────────────────────────────────────────── */}
       <aside className="hidden lg:flex flex-col fixed inset-y-0 left-0 w-52 bg-slate-900 border-r border-slate-800 z-30">
@@ -268,18 +268,20 @@ export default function AppShell({ children, businessName }: Props) {
       </aside>
 
       {/* ── Mobile Topbar ────────────────────────────────────────────── */}
-      <div className="lg:hidden fixed top-0 inset-x-0 z-30 bg-[#0b0d14] border-b border-slate-800/80 mobile-topbar-shell">
-        <div className="h-11 flex items-center justify-between px-4">
-          <div className="flex items-center gap-2">
+      <div className="lg:hidden fixed top-0 inset-x-0 z-30 border-b border-slate-800/80 mobile-topbar-shell">
+        <div className="h-12 flex items-center justify-between px-4">
+          <div className="flex items-center gap-2 min-w-0">
             <ReplyKitLogo size="sm" />
-            <span className="font-bold text-white text-[13px] tracking-tight">ReplyKit</span>
-            {businessName && (
-              <span className="text-[11px] text-slate-500 truncate max-w-[120px]">· {businessName}</span>
-            )}
+            <div className="min-w-0">
+              <span className="block font-bold text-white text-[13px] tracking-tight leading-tight">ReplyKit</span>
+              <span className="block text-[11px] text-slate-500 truncate max-w-[180px] leading-tight">
+                {businessName ?? planLabel}
+              </span>
+            </div>
           </div>
           <Link
             href="/billing"
-            className="ripple text-[11px] font-bold text-blue-400 bg-blue-600/10 border border-blue-500/25 px-2.5 py-1 rounded-md"
+            className="ripple text-[11px] font-bold text-blue-300 bg-blue-600/15 border border-blue-500/25 px-3 py-1.5 rounded-full min-h-[36px] flex items-center"
           >
             Upgrade
           </Link>
@@ -321,7 +323,7 @@ export default function AppShell({ children, businessName }: Props) {
       )}
 
       {/* ── Content Area (keyed on pathname for page transition) ──────── */}
-      <div className="flex-1 lg:ml-52 min-h-screen app-content-mobile">
+      <div className="flex-1 lg:ml-52 min-h-dvh app-content-mobile">
         <div key={pathname} className="tab-enter min-h-full">
           {children}
         </div>

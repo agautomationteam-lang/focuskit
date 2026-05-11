@@ -7,9 +7,10 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Automatically reply to Google reviews and protect your reputation.',
     start_url: '/dashboard',
     display: 'standalone',
+    display_override: ['window-controls-overlay', 'standalone'],
     orientation: 'portrait',
-    background_color: '#ffffff',
-    theme_color: '#2563eb',
+    background_color: '#0b0d14',
+    theme_color: '#0b0d14',
     icons: [
       {
         src: '/icon-192.png',
