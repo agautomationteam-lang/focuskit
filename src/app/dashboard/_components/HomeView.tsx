@@ -134,7 +134,7 @@ export default function HomeView({
               Connect Google Business →
             </a>
             <p className="text-[11px] text-slate-600 text-center leading-relaxed">
-              Google verification pending — if you see &apos;access blocked&apos;, email support@replykit.com
+              Google verification pending — if you see &apos;access blocked&apos;, email agautomationteam@gmail.com
             </p>
           </div>
         ) : (

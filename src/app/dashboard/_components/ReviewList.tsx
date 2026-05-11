@@ -152,6 +152,7 @@ export default function ReviewList({
   const upgradeSuccess   = searchParams.get('upgrade') === 'success'
   const justConnected    = searchParams.get('google_connected') === '1'
   const googleError      = searchParams.get('google_error') === '1'
+  const googleErrorMessage = searchParams.get('google_error_message')
   const googleNoBusiness = searchParams.get('google_no_business') === '1'
   const googleBlocked    = searchParams.get('google_blocked') === '1'
   const dashTab          = searchParams.get('tab') ?? 'home'
@@ -516,7 +517,7 @@ export default function ReviewList({
                 <div className="mb-5 bg-amber-500/10 border border-amber-500/25 rounded-xl px-4 py-3 slide-in-down">
                   <p className="text-sm font-semibold text-amber-300 mb-1">Google access blocked</p>
                   <p className="text-xs text-amber-400/80 leading-relaxed">
-                    Google verification is pending. Email <strong>support@replykit.com</strong> to be added as a tester, then try connecting again.
+                    Google verification is pending. Email <strong>agautomationteam@gmail.com</strong> to be added as a tester, then try connecting again.
                   </p>
                   <a href="/api/auth/google" className="inline-block mt-2 text-xs font-semibold text-amber-300 underline underline-offset-2">
                     Try again →
@@ -526,7 +527,7 @@ export default function ReviewList({
               {googleError && (
                 <div className="mb-5 flex items-center gap-3 bg-red-500/15 border border-red-500/30 rounded-xl px-4 py-3 text-sm text-red-300 slide-in-down">
                   <span>⚠️</span>
-                  Google connection failed. <a href="/api/auth/google" className="underline font-semibold ml-1">Try again →</a>
+                  {googleErrorMessage ?? 'Google connection failed.'} <a href="/api/auth/google" className="underline font-semibold ml-1">Try again →</a>
                 </div>
               )}
               {googleNoBusiness && (

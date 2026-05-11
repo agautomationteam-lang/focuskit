@@ -199,7 +199,7 @@ export default async function LandingPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             {[
               { name: 'Free',    price: '$0',  mo: false, features: ['5 reviews/month', 'AI-drafted replies', 'Manual approve'], cta: 'Start free', highlight: false },
-              { name: 'Starter', price: '$29', mo: true,  features: ['5 AI replies/month', 'Pro & friendly drafts', '1-click publish', 'Weekly digest'], cta: 'Get Starter', highlight: false },
+              { name: 'Starter', price: '$29', mo: true,  features: ['25 FREE AI replies included', 'Unlimited reviews after that', 'Pro & friendly drafts', '1-click publish', 'Weekly digest'], cta: 'Get Starter', highlight: false },
               { name: 'Pro',     price: '$59', mo: true,  features: ['Unlimited AI replies', 'Auto-reply enabled', 'All 4 tone options', 'Priority support'], cta: 'Get Pro', highlight: true },
             ].map(plan => (
               <div key={plan.name} className={`rounded-2xl p-6 border flex flex-col ${plan.highlight ? 'bg-blue-600/10 border-blue-500/40 ring-1 ring-blue-500/30' : 'bg-slate-800/60 border-slate-700/50'}`}>

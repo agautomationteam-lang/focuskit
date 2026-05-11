@@ -2,58 +2,166 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 const STAR_MAP: Record<string, number> = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 }
+const API_NOT_ENABLED_MESSAGE =
+  'Google Business Profile API not enabled. Please contact agautomationteam@gmail.com'
+
+interface GBPAccount {
+  name: string
+}
+
+interface GBPLocation {
+  name: string
+  title?: string
+}
 
 interface GBPReview {
   name: string
-  reviewId: string
-  reviewer: { displayName: string; profilePhotoUrl?: string }
-  starRating: string
+  reviewId?: string
+  reviewer?: { displayName?: string; profilePhotoUrl?: string }
+  starRating?: string
   comment?: string
-  createTime: string
+  createTime?: string
 }
 
-async function callRefreshToken(refreshToken: string): Promise<string | null> {
+class GoogleApiError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
+
+function parseGoogleError(status: number, body: string) {
+  if (status === 403) return API_NOT_ENABLED_MESSAGE
+
   try {
-    const res = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: process.env.GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token',
-      }),
-    })
-    if (!res.ok) return null
-    const data = await res.json() as { access_token?: string }
-    return data.access_token ?? null
-  } catch { return null }
+    const parsed = JSON.parse(body) as { error?: { message?: string }; message?: string }
+    return parsed.error?.message ?? parsed.message ?? body
+  } catch {
+    return body || `Google API error ${status}`
+  }
 }
 
-async function fetchGBPReviews(accessToken: string, locationPath: string): Promise<GBPReview[]> {
-  const res = await fetch(
-    `https://mybusiness.googleapis.com/v4/${locationPath}/reviews?pageSize=50`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
+async function googleGet<T>(url: string, accessToken: string): Promise<T> {
+  console.log('[Reviews] Google GET:', url)
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  const body = await res.text()
+
+  if (!res.ok) {
+    const message = parseGoogleError(res.status, body)
+    console.log('[Reviews] Google API failed:', res.status, message)
+    throw new GoogleApiError(res.status, message)
+  }
+
+  console.log('[Reviews] Google API succeeded:', url)
+  return JSON.parse(body) as T
+}
+
+async function callRefreshToken(refreshToken: string): Promise<string> {
+  console.log('[Reviews] Refreshing Google access token')
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID!,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  })
+  const body = await res.text()
+
+  if (!res.ok) {
+    const message = parseGoogleError(res.status, body)
+    console.log('[Reviews] Refresh token failed:', res.status, message)
+    throw new GoogleApiError(res.status, message)
+  }
+
+  const data = JSON.parse(body) as { access_token?: string }
+  if (!data.access_token) {
+    console.log('[Reviews] Refresh token response missing access token:', body)
+    throw new GoogleApiError(401, `Google refresh response missing access token: ${body}`)
+  }
+
+  console.log('[Reviews] Google access token refreshed')
+  return data.access_token
+}
+
+function idFromName(name: string, prefix: string) {
+  return name.replace(`${prefix}/`, '')
+}
+
+async function fetchAllReviews(accessToken: string) {
+  console.log('[Reviews] Fetching Google Business accounts')
+  const accountsData = await googleGet<{ accounts?: GBPAccount[] }>(
+    'https://mybusinessaccounts.googleapis.com/v1/accounts',
+    accessToken,
   )
-  if (res.status === 401) throw Object.assign(new Error('token_expired'), { status: 401 })
-  if (!res.ok) throw new Error(`GBP ${res.status}`)
-  const data = await res.json() as { reviews?: GBPReview[] }
-  return data.reviews ?? []
-}
+  const accounts = accountsData.accounts ?? []
+  console.log('[Reviews] Accounts found:', accounts.length)
 
+  const reviews: GBPReview[] = []
+  let firstLocationPath = ''
+  let firstAccountName = ''
+  let firstBusinessTitle = ''
+
+  for (const account of accounts) {
+    const accountId = idFromName(account.name, 'accounts')
+    console.log('[Reviews] Fetching locations for account:', accountId)
+
+    const locationsData = await googleGet<{ locations?: GBPLocation[] }>(
+      `https://mybusiness.googleapis.com/v1/accounts/${accountId}/locations`,
+      accessToken,
+    )
+    const locations = locationsData.locations ?? []
+    console.log('[Reviews] Locations found for account:', accountId, locations.length)
+
+    for (const location of locations) {
+      const locationId = idFromName(location.name, 'locations')
+      const locationPath = `accounts/${accountId}/locations/${locationId}`
+      if (!firstLocationPath) {
+        firstLocationPath = locationPath
+        firstAccountName = account.name
+        firstBusinessTitle = location.title ?? ''
+      }
+
+      console.log('[Reviews] Fetching reviews for location:', locationPath)
+      const reviewsData = await googleGet<{ reviews?: GBPReview[] }>(
+        `https://mybusiness.googleapis.com/v1/accounts/${accountId}/locations/${locationId}/reviews`,
+        accessToken,
+      )
+      const locationReviews = reviewsData.reviews ?? []
+      console.log('[Reviews] Reviews found for location:', locationPath, locationReviews.length)
+      reviews.push(...locationReviews)
+    }
+  }
+
+  return { reviews, firstLocationPath, firstAccountName, firstBusinessTitle }
+}
 
 export async function POST(request: Request) {
+  console.log('[Reviews] Fetch route started')
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    console.log('[Reviews] Unauthorized request')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const { businessId } = await request.json().catch(() => ({})) as { businessId?: string }
-  if (!businessId) return NextResponse.json({ error: 'businessId required' }, { status: 400 })
+  if (!businessId) {
+    console.log('[Reviews] Missing businessId')
+    return NextResponse.json({ error: 'businessId required' }, { status: 400 })
+  }
 
+  console.log('[Reviews] Loading business:', businessId)
   const [{ data: business, error: bizError }, { data: userRecord }] = await Promise.all([
     supabase
       .from('businesses')
-      .select('id, google_place_id, google_access_token, google_refresh_token')
+      .select('id, name, google_place_id, google_access_token, google_refresh_token, google_account_id')
       .eq('id', businessId)
       .eq('user_id', user.id)
       .single(),
@@ -65,77 +173,106 @@ export async function POST(request: Request) {
   ])
 
   if (bizError || !business) {
-    return NextResponse.json({ error: 'Business not found' }, { status: 404 })
+    const message = bizError?.message ?? 'Business not found'
+    console.log('[Reviews] Business lookup failed:', message)
+    return NextResponse.json({ error: message }, { status: 404 })
+  }
+
+  if (!business.google_access_token) {
+    console.log('[Reviews] No Google access token saved')
+    return NextResponse.json({ error: 'Google Business is not connected', fetched: 0, inserted: 0, source: 'none' })
   }
 
   const isPaid = userRecord?.subscription_status === 'active'
   const FREE_LIMIT = 5
 
-  let rawReviews: GBPReview[]
-  let source = 'live'
+  let accessToken = business.google_access_token
+  let fetched
 
-  if (business.google_access_token && business.google_place_id) {
-    console.log(`[Reviews] Fetching reviews for location: ${business.google_place_id}`)
-    try {
-      rawReviews = await fetchGBPReviews(business.google_access_token, business.google_place_id)
-      source = 'google'
-      console.log(`[Reviews] Found ${rawReviews.length} reviews from GBP`)
-    } catch (err: unknown) {
-      const status = (err as { status?: number }).status
-      if (status === 401) {
-        const refreshToken = (business as unknown as { google_refresh_token?: string }).google_refresh_token
-        if (refreshToken) {
-          const newToken = await callRefreshToken(refreshToken)
-          if (newToken) {
-            await supabase.from('businesses').update({ google_access_token: newToken }).eq('id', businessId)
-            rawReviews = await fetchGBPReviews(newToken, business.google_place_id)
-            source = 'google'
-          } else {
-            return NextResponse.json(
-              { error: 'Google token expired — reconnect Google Business', needsReconnect: true },
-              { status: 401 }
-            )
-          }
-        } else {
-          return NextResponse.json(
-            { error: 'Google token expired — reconnect Google Business', needsReconnect: true },
-            { status: 401 }
-          )
+  try {
+    fetched = await fetchAllReviews(accessToken)
+  } catch (err) {
+    if (err instanceof GoogleApiError && err.status === 401 && business.google_refresh_token) {
+      try {
+        accessToken = await callRefreshToken(business.google_refresh_token)
+        const { error: tokenUpdateError } = await supabase
+          .from('businesses')
+          .update({ google_access_token: accessToken })
+          .eq('id', businessId)
+        if (tokenUpdateError) {
+          console.log('[Reviews] Failed saving refreshed access token:', tokenUpdateError.message)
+          return NextResponse.json({ error: tokenUpdateError.message }, { status: 500 })
         }
-      } else {
-        return NextResponse.json({ error: 'Failed to fetch from Google Business Profile' }, { status: 502 })
+        fetched = await fetchAllReviews(accessToken)
+      } catch (refreshErr) {
+        const message = refreshErr instanceof Error ? refreshErr.message : 'Google token expired'
+        console.log('[Reviews] Refresh/retry failed:', message)
+        return NextResponse.json({ error: message, needsReconnect: true }, { status: 401 })
       }
+    } else {
+      const message = err instanceof Error ? err.message : 'Failed to fetch from Google Business Profile'
+      const status = err instanceof GoogleApiError ? (err.status === 403 ? 403 : 502) : 502
+      console.log('[Reviews] Google review fetch failed:', message)
+      return NextResponse.json({ error: message }, { status })
     }
-  } else {
-    // No Google Business connected — return empty, never insert fake data into a real account
-    return NextResponse.json({ fetched: 0, inserted: 0, source: 'none' })
   }
 
+  const rawReviews = fetched.reviews
   const limited = isPaid ? rawReviews : rawReviews.slice(0, FREE_LIMIT)
+  console.log('[Reviews] Reviews fetched/limited:', rawReviews.length, limited.length)
+
+  if (fetched.firstLocationPath || fetched.firstAccountName || fetched.firstBusinessTitle) {
+    const updateData: Record<string, string> = {}
+    if (fetched.firstLocationPath) updateData.google_place_id = fetched.firstLocationPath
+    if (fetched.firstAccountName) updateData.google_account_id = fetched.firstAccountName
+    if (fetched.firstBusinessTitle && (business.name === 'My Business' || !business.name)) {
+      updateData.name = fetched.firstBusinessTitle
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      console.log('[Reviews] Saving discovered Google business metadata:', updateData)
+      const { error: metadataError } = await supabase.from('businesses').update(updateData).eq('id', businessId)
+      if (metadataError) {
+        console.log('[Reviews] Failed saving Google business metadata:', metadataError.message)
+        return NextResponse.json({ error: metadataError.message }, { status: 500 })
+      }
+    }
+  }
 
   const syncedAt = new Date().toISOString()
   const toInsert = limited.map(r => ({
     business_id: businessId,
     google_review_id: r.name,
-    reviewer_name: r.reviewer.displayName,
-    reviewer_photo_url: r.reviewer.profilePhotoUrl ?? null,
-    rating: STAR_MAP[r.starRating] ?? 3,
+    reviewer_name: r.reviewer?.displayName ?? 'Google reviewer',
+    reviewer_photo_url: r.reviewer?.profilePhotoUrl ?? null,
+    rating: STAR_MAP[r.starRating ?? ''] ?? 3,
     text: r.comment ?? '',
-    review_date: r.createTime,
+    review_date: r.createTime ?? syncedAt,
     status: 'pending',
     synced_at: syncedAt,
   }))
 
+  if (toInsert.length === 0) {
+    console.log('[Reviews] No reviews returned from Google')
+    return NextResponse.json({ fetched: 0, inserted: 0, source: 'google' })
+  }
+
+  console.log('[Reviews] Saving reviews to Supabase:', toInsert.length)
   const { data: inserted, error: insertError } = await supabase
     .from('reviews')
     .upsert(toInsert, { onConflict: 'business_id,google_review_id', ignoreDuplicates: true })
     .select('id')
 
   if (insertError) {
-    console.error(`[Reviews] Supabase insert error: ${insertError.message}`)
+    console.log('[Reviews] Supabase insert error:', insertError.message)
     return NextResponse.json({ error: insertError.message }, { status: 500 })
   }
 
-  console.log(`[Reviews] Stored ${inserted?.length ?? 0} new reviews in Supabase`)
-  return NextResponse.json({ fetched: limited.length, inserted: inserted?.length ?? 0, source })
+  console.log('[Reviews] Stored reviews in Supabase:', inserted?.length ?? 0)
+  return NextResponse.json({
+    fetched: limited.length,
+    totalAvailable: rawReviews.length,
+    inserted: inserted?.length ?? 0,
+    source: 'google',
+  })
 }

@@ -11,8 +11,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(loginUrl)
   }
 
-  const origin = new URL(request.url).origin
-  const redirectUri = `${origin}/api/auth/google/callback`
+  const redirectUri = 'https://project-kpmkq.vercel.app/api/auth/google/callback'
 
   const state = Buffer.from(
     JSON.stringify({ uid: user.id, ts: Date.now() })
@@ -22,13 +21,14 @@ export async function GET(request: Request) {
     client_id: process.env.GOOGLE_CLIENT_ID!,
     redirect_uri: redirectUri,
     response_type: 'code',
-    scope: 'https://www.googleapis.com/auth/business.manage',
+    scope: 'https://www.googleapis.com/auth/business.manage https://www.googleapis.com/auth/plus.business.manage',
     access_type: 'offline',
     prompt: 'consent',
     state,
   })
 
-  return NextResponse.redirect(
-    `https://accounts.google.com/o/oauth2/v2/auth?${params}`
-  )
+  const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
+  console.log('[Google OAuth] URL:', oauthUrl)
+
+  return NextResponse.redirect(oauthUrl)
 }

@@ -16,17 +16,29 @@ function Check() {
 
 const PLANS = [
   {
+    id: 'free',
+    name: 'Free',
+    price: '$0',
+    popular: false,
+    tag: '5 reviews/mo',
+    features: [
+      '5 reviews/month',
+      'AI-drafted replies',
+      'Manual approve',
+    ],
+  },
+  {
     id: 'starter',
     name: 'Starter',
     price: '$29',
     popular: false,
-    tag: '5 replies/mo',
+    tag: '25 replies included',
     features: [
-      '5 AI-generated replies/month',
-      'Professional & friendly drafts',
-      '1-click approve & publish',
+      '25 FREE AI replies included',
+      'Unlimited reviews after that',
+      'Pro & friendly drafts',
+      '1-click publish',
       'Weekly email digest',
-      'Email support',
     ],
   },
   {
@@ -37,9 +49,8 @@ const PLANS = [
     tag: 'Unlimited · Auto-post',
     features: [
       'Unlimited AI replies',
-      'Auto-reply — zero manual effort',
+      'Auto-reply enabled',
       'All 4 tone options',
-      'Negative review instant alerts',
       'Priority support',
     ],
   },
@@ -100,7 +111,7 @@ export default function BillingPage() {
         )}
 
         {/* Plan cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
           {PLANS.map(plan => (
             <div
               key={plan.id}
@@ -129,6 +140,14 @@ export default function BillingPage() {
                   </li>
                 ))}
               </ul>
+              {plan.id === 'free' ? (
+                <Link
+                  href="/dashboard"
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold text-center transition-colors btn-press bg-slate-700 text-white"
+                >
+                  Current free plan
+                </Link>
+              ) : (
               <button
                 onClick={() => handleCheckout(plan.id)}
                 disabled={loading !== null}
@@ -142,6 +161,7 @@ export default function BillingPage() {
                   ? 'Opening checkout…'
                   : `Get ${plan.name} — ${plan.price}/month`}
               </button>
+              )}
             </div>
           ))}
         </div>

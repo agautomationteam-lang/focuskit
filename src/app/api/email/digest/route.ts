@@ -96,7 +96,7 @@ export async function POST(request: Request) {
   })
 
   const { data: emailData, error: emailError } = await resend.emails.send({
-    from: 'ReplyKit <digest@replykit.co>',
+    from: 'ReplyKit <agautomationteam@gmail.com>',
     to: ownerEmail,
     subject,
     html,

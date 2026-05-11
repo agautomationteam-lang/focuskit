@@ -266,7 +266,7 @@ export async function handleSendDigest(payload: Record<string, unknown>): Promis
   })
 
   const { error: emailError } = await resend.emails.send({
-    from:    'ReplyKit <digest@replykit.co>',
+    from:    'ReplyKit <agautomationteam@gmail.com>',
     to:      ownerEmail,
     subject,
     html,

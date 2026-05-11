@@ -249,7 +249,7 @@ export default function OnboardingPage() {
                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2.5 mb-4">
                   <p className="text-xs text-amber-300 leading-relaxed">
                     <strong>Note:</strong> Google verification is pending. If you see an &apos;access blocked&apos; error, email{' '}
-                    <span className="font-semibold">support@replykit.com</span> to be added as a tester.
+                    <span className="font-semibold">agautomationteam@gmail.com</span> to be added as a tester.
                   </p>
                 </div>
 

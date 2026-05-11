@@ -114,7 +114,7 @@ export default function ContactPage() {
         </div>
 
         <div className="flex items-center justify-center gap-6 mt-6 text-xs text-slate-600">
-          <span>support@replykit.app</span>
+          <span>agautomationteam@gmail.com</span>
           <span>·</span>
           <span>Typically replies within a few hours</span>
         </div>

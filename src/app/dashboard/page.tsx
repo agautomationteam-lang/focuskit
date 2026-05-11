@@ -42,7 +42,7 @@ export default async function DashboardPage() {
     (r: { google_review_id?: string }) => !r.google_review_id?.startsWith('stub_')
   )
 
-  const googleConnected = !!(biz.google_place_id && biz.google_access_token)
+  const googleConnected = !!biz.google_access_token
 
   return (
     <AppShell businessName={biz.name}>

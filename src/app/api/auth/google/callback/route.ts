@@ -1,13 +1,12 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 
-const GOOGLE_ACCOUNT_MANAGEMENT_URL = 'https://mybusinessaccountmanagement.googleapis.com/v1/accounts'
-const GOOGLE_BUSINESS_INFORMATION_URL = 'https://mybusinessbusinessinformation.googleapis.com/v1'
-
-function normalizeLocationPath(accountName: string, locationName: string) {
-  if (locationName.startsWith('accounts/')) return locationName
-  if (locationName.startsWith('locations/')) return `${accountName}/${locationName}`
-  return `${accountName}/locations/${locationName}`
+function dashboardError(origin: string, message: string) {
+  const url = new URL('/dashboard', origin)
+  url.searchParams.set('tab', 'home')
+  url.searchParams.set('google_error', '1')
+  url.searchParams.set('google_error_message', message)
+  return url
 }
 
 export async function GET(request: Request) {
@@ -15,34 +14,41 @@ export async function GET(request: Request) {
   const code = url.searchParams.get('code')
   const state = url.searchParams.get('state')
   const oauthError = url.searchParams.get('error')
+  const oauthDescription = url.searchParams.get('error_description')
   const origin = url.origin
 
-  const successUrl   = `${origin}/dashboard?tab=reviews&google_connected=1`
-  const errorUrl     = `${origin}/dashboard?tab=home&google_error=1`
-  const noBusinessUrl = `${origin}/dashboard?tab=home&google_no_business=1`
+  const successUrl = `${origin}/dashboard?tab=reviews&google_connected=1`
+
+  console.log('[Google OAuth] Callback started')
 
   if (oauthError === 'access_denied') {
-    return NextResponse.redirect(`${origin}/dashboard?tab=home&google_blocked=1`)
+    const message = oauthDescription ?? 'Google access denied'
+    console.log('[Google OAuth] Access denied:', message)
+    return NextResponse.redirect(`${origin}/dashboard?tab=home&google_blocked=1&google_error_message=${encodeURIComponent(message)}`)
   }
 
   if (oauthError || !code || !state) {
-    return NextResponse.redirect(errorUrl)
+    const message = oauthDescription ?? oauthError ?? 'Missing Google authorization code or state'
+    console.log('[Google OAuth] Callback missing required params:', message)
+    return NextResponse.redirect(dashboardError(origin, message))
   }
 
-  // Validate state
   let decoded: { uid: string; ts: number }
   try {
     decoded = JSON.parse(Buffer.from(state, 'base64url').toString())
     if (!decoded.uid || Date.now() - decoded.ts > 15 * 60 * 1000) {
-      throw new Error('invalid')
+      throw new Error('Invalid or expired OAuth state')
     }
-  } catch {
-    return NextResponse.redirect(errorUrl)
+    console.log('[Google OAuth] State validated for user:', decoded.uid)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Invalid OAuth state'
+    console.log('[Google OAuth] State validation failed:', message)
+    return NextResponse.redirect(dashboardError(origin, message))
   }
 
-  const redirectUri = `${origin}/api/auth/google/callback`
+  const redirectUri = 'https://project-kpmkq.vercel.app/api/auth/google/callback'
 
-  // Exchange code for tokens
+  console.log('[Google OAuth] Exchanging authorization code for tokens')
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -55,26 +61,45 @@ export async function GET(request: Request) {
     }),
   })
 
-  if (!tokenRes.ok) return NextResponse.redirect(errorUrl)
-
-  const { access_token, refresh_token } = await tokenRes.json() as {
-    access_token?: string
-    refresh_token?: string
+  const tokenText = await tokenRes.text()
+  if (!tokenRes.ok) {
+    console.log('[Google OAuth] Token exchange failed:', tokenRes.status, tokenText)
+    return NextResponse.redirect(dashboardError(origin, `Google token exchange failed: ${tokenText}`))
   }
 
-  if (!access_token) return NextResponse.redirect(errorUrl)
+  let tokens: { access_token?: string; refresh_token?: string }
+  try {
+    tokens = JSON.parse(tokenText) as { access_token?: string; refresh_token?: string }
+  } catch {
+    console.log('[Google OAuth] Token response was not JSON:', tokenText)
+    return NextResponse.redirect(dashboardError(origin, `Invalid Google token response: ${tokenText}`))
+  }
+
+  const { access_token, refresh_token } = tokens
+  if (!access_token) {
+    console.log('[Google OAuth] No access token in token response:', tokenText)
+    return NextResponse.redirect(dashboardError(origin, `Google did not return an access token: ${tokenText}`))
+  }
+
+  console.log('[Google OAuth] Token exchange succeeded. Refresh token returned:', Boolean(refresh_token))
 
   const supabase = createAdminClient()
+  console.log('[Google OAuth] Loading business for user:', decoded.uid)
 
-  // Get or create business for this user
-  let { data: biz } = await supabase
+  let { data: biz, error: bizLoadError } = await supabase
     .from('businesses')
     .select('id, name')
     .eq('user_id', decoded.uid)
     .maybeSingle()
 
+  if (bizLoadError) {
+    console.log('[Google OAuth] Failed to load business:', bizLoadError.message)
+    return NextResponse.redirect(dashboardError(origin, bizLoadError.message))
+  }
+
   if (!biz) {
-    const { data: newBiz } = await supabase
+    console.log('[Google OAuth] Creating business row for user:', decoded.uid)
+    const { data: newBiz, error: createError } = await supabase
       .from('businesses')
       .insert({
         user_id: decoded.uid,
@@ -84,86 +109,33 @@ export async function GET(request: Request) {
       })
       .select('id, name')
       .single()
+
+    if (createError || !newBiz) {
+      const message = createError?.message ?? 'Failed to create business row'
+      console.log('[Google OAuth] Business create failed:', message)
+      return NextResponse.redirect(dashboardError(origin, message))
+    }
+
     biz = newBiz
   }
 
-  if (!biz) return NextResponse.redirect(errorUrl)
-
-  // Fetch GBP accounts list
-  let locationPath = ''
-  let accountName = ''
-  let businessTitle = ''
-
-  const accountsRes = await fetch(GOOGLE_ACCOUNT_MANAGEMENT_URL, {
-    headers: { Authorization: `Bearer ${access_token}` },
-  })
-
-  console.log('[Google OAuth] Fetching accounts...')
-  if (accountsRes.ok) {
-    const { accounts } = await accountsRes.json() as {
-      accounts?: Array<{ name: string; accountName?: string }>
-    }
-
-    if (accounts && accounts.length > 0) {
-      for (const account of accounts) {
-        accountName = account.name
-        console.log(`[Google OAuth] Found account: ${accountName}`)
-
-        console.log('[Google OAuth] Fetching locations...')
-        const locationsUrl =
-          `${GOOGLE_BUSINESS_INFORMATION_URL}/${accountName}/locations?readMask=name,title`
-        const locRes = await fetch(
-          locationsUrl,
-          { headers: { Authorization: `Bearer ${access_token}` } }
-        )
-
-        if (locRes.ok) {
-          const { locations } = await locRes.json() as {
-            locations?: Array<{ name: string; title?: string }>
-          }
-          if (locations && locations.length > 0) {
-            const loc = locations[0]
-            businessTitle = loc.title ?? ''
-            locationPath = normalizeLocationPath(accountName, loc.name)
-            console.log(`[Google OAuth] Found location: ${locationPath} (${businessTitle})`)
-            break
-          }
-
-          console.log(`[Google OAuth] No locations found for account ${accountName}`)
-        } else {
-          const body = await locRes.text().catch(() => '')
-          console.log(`[Google OAuth] Locations fetch failed: ${locRes.status} ${body}`)
-        }
-      }
-
-      if (!locationPath) accountName = ''
-    } else {
-      console.log('[Google OAuth] No accounts found')
-    }
-  } else {
-    const body = await accountsRes.text().catch(() => '')
-    console.log(`[Google OAuth] Accounts fetch failed: ${accountsRes.status} ${body}`)
-  }
-
-  // Persist tokens and location to business record
   const updateData: Record<string, string | null> = {
     google_access_token: access_token,
+    google_refresh_token: refresh_token ?? null,
   }
-  if (refresh_token) updateData.google_refresh_token = refresh_token
-  if (locationPath) updateData.google_place_id = locationPath
-  if (accountName) updateData.google_account_id = accountName
-  if (businessTitle && (biz.name === 'My Business' || !biz.name)) {
-    updateData.name = businessTitle
-  }
+  if (!refresh_token) delete updateData.google_refresh_token
 
-  const { error: updateError } = await supabase.from('businesses').update(updateData).eq('id', biz.id)
+  console.log('[Google OAuth] Saving Google tokens to business:', biz.id)
+  const { error: updateError } = await supabase
+    .from('businesses')
+    .update(updateData)
+    .eq('id', biz.id)
+
   if (updateError) {
-    console.error(`[Google OAuth] Failed to save Google connection: ${updateError.message}`)
-    return NextResponse.redirect(errorUrl)
+    console.log('[Google OAuth] Failed saving tokens:', updateError.message)
+    return NextResponse.redirect(dashboardError(origin, updateError.message))
   }
 
-  // No Business Profile listing found under this Google account
-  if (!locationPath) return NextResponse.redirect(noBusinessUrl)
-
+  console.log('[Google OAuth] Tokens saved. Redirecting to dashboard:', successUrl)
   return NextResponse.redirect(successUrl)
 }
