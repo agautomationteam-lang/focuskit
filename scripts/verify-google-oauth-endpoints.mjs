@@ -48,7 +48,7 @@ assert.match(
 
 assert.match(
   fetchReviews,
-  /https:\/\/mybusinessaccounts\.googleapis\.com\/v1\/accounts/,
+  /https:\/\/mybusinessaccountmanagement\.googleapis\.com\/v1\/accounts/,
   'Review fetch must call requested accounts endpoint',
 )
 

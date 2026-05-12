@@ -104,7 +104,7 @@ function idFromName(name: string, prefix: string) {
 async function fetchAllReviews(accessToken: string) {
   console.log('[Reviews] Fetching Google Business accounts')
   const accountsData = await googleGet<{ accounts?: GBPAccount[] }>(
-    'https://mybusinessaccounts.googleapis.com/v1/accounts',
+    'https://mybusinessaccountmanagement.googleapis.com/v1/accounts',
     accessToken,
   )
   const accounts = accountsData.accounts ?? []
