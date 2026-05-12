@@ -179,6 +179,7 @@ export default function ReviewList({
   const [ptrActive, setPtrActive]           = useState(false)
   const [showWelcome, setShowWelcome]       = useState(false)
   const [welcomeName, setWelcomeName]       = useState('')
+  const initialRefreshTriggeredRef          = useRef(false)
 
   // ── Pagination & sort ────────────────────────────────────────────────────────
   const [sort, setSort]             = useState<SortType>('newest')
@@ -244,6 +245,15 @@ export default function ReviewList({
       }
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (initialRefreshTriggeredRef.current) return
+    if (demo || !googleConnected || googleNoBusiness || googleBlocked) return
+    if (dashTab !== 'reviews') return
+
+    initialRefreshTriggeredRef.current = true
+    void handleRefresh()
+  }, [dashTab, demo, googleBlocked, googleConnected, googleNoBusiness]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function dismissWelcome() {
     localStorage.removeItem('rk_show_welcome')
