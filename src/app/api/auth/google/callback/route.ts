@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { syncBusinessReviews, type GoogleBusinessRecord } from '@/lib/google-business'
 import { NextResponse } from 'next/server'
 
 function dashboardError(origin: string, message: string) {
@@ -17,19 +18,13 @@ export async function GET(request: Request) {
   const oauthDescription = url.searchParams.get('error_description')
   const origin = url.origin
 
-  const successUrl = `${origin}/dashboard?tab=reviews&google_connected=1`
-
-  console.log('[Google OAuth] Callback started')
-
   if (oauthError === 'access_denied') {
-    const message = oauthDescription ?? 'Google access denied'
-    console.log('[Google OAuth] Access denied:', message)
+    const message = oauthDescription ?? 'Google access was denied.'
     return NextResponse.redirect(`${origin}/dashboard?tab=home&google_blocked=1&google_error_message=${encodeURIComponent(message)}`)
   }
 
   if (oauthError || !code || !state) {
-    const message = oauthDescription ?? oauthError ?? 'Missing Google authorization code or state'
-    console.log('[Google OAuth] Callback missing required params:', message)
+    const message = oauthDescription ?? 'Google sign-in did not finish correctly.'
     return NextResponse.redirect(dashboardError(origin, message))
   }
 
@@ -37,18 +32,14 @@ export async function GET(request: Request) {
   try {
     decoded = JSON.parse(Buffer.from(state, 'base64url').toString())
     if (!decoded.uid || Date.now() - decoded.ts > 15 * 60 * 1000) {
-      throw new Error('Invalid or expired OAuth state')
+      throw new Error('That Google sign-in link expired. Please try again.')
     }
-    console.log('[Google OAuth] State validated for user:', decoded.uid)
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Invalid OAuth state'
-    console.log('[Google OAuth] State validation failed:', message)
-    return NextResponse.redirect(dashboardError(origin, message))
+  } catch {
+    return NextResponse.redirect(dashboardError(origin, 'That Google sign-in link expired. Please try again.'))
   }
 
   const redirectUri = 'https://project-kpmkq.vercel.app/api/auth/google/callback'
 
-  console.log('[Google OAuth] Exchanging authorization code for tokens')
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -63,43 +54,45 @@ export async function GET(request: Request) {
 
   const tokenText = await tokenRes.text()
   if (!tokenRes.ok) {
-    console.log('[Google OAuth] Token exchange failed:', tokenRes.status, tokenText)
-    return NextResponse.redirect(dashboardError(origin, `Google token exchange failed: ${tokenText}`))
+    return NextResponse.redirect(dashboardError(origin, 'Google sign-in could not be completed. Please try again.'))
   }
 
   let tokens: { access_token?: string; refresh_token?: string }
   try {
     tokens = JSON.parse(tokenText) as { access_token?: string; refresh_token?: string }
   } catch {
-    console.log('[Google OAuth] Token response was not JSON:', tokenText)
-    return NextResponse.redirect(dashboardError(origin, `Invalid Google token response: ${tokenText}`))
+    return NextResponse.redirect(dashboardError(origin, 'Google sign-in returned an unexpected response.'))
   }
 
   const { access_token, refresh_token } = tokens
   if (!access_token) {
-    console.log('[Google OAuth] No access token in token response:', tokenText)
-    return NextResponse.redirect(dashboardError(origin, `Google did not return an access token: ${tokenText}`))
+    return NextResponse.redirect(dashboardError(origin, 'Google did not return an access token. Please try again.'))
   }
 
-  console.log('[Google OAuth] Token exchange succeeded. Refresh token returned:', Boolean(refresh_token))
-
   const supabase = createAdminClient()
-  console.log('[Google OAuth] Loading business for user:', decoded.uid)
 
-  let { data: biz, error: bizLoadError } = await supabase
+  let { data: business, error: businessLoadError } = await supabase
     .from('businesses')
-    .select('id, name')
+    .select(`
+      id,
+      user_id,
+      name,
+      google_place_id,
+      google_location_id,
+      google_access_token,
+      google_refresh_token,
+      google_account_id,
+      last_synced_at
+    `)
     .eq('user_id', decoded.uid)
     .maybeSingle()
 
-  if (bizLoadError) {
-    console.log('[Google OAuth] Failed to load business:', bizLoadError.message)
-    return NextResponse.redirect(dashboardError(origin, bizLoadError.message))
+  if (businessLoadError) {
+    return NextResponse.redirect(dashboardError(origin, 'We could not load your business profile.'))
   }
 
-  if (!biz) {
-    console.log('[Google OAuth] Creating business row for user:', decoded.uid)
-    const { data: newBiz, error: createError } = await supabase
+  if (!business) {
+    const { data: createdBusiness, error: createError } = await supabase
       .from('businesses')
       .insert({
         user_id: decoded.uid,
@@ -107,16 +100,24 @@ export async function GET(request: Request) {
         tone: 'professional',
         auto_reply_enabled: false,
       })
-      .select('id, name')
+      .select(`
+        id,
+        user_id,
+        name,
+        google_place_id,
+        google_location_id,
+        google_access_token,
+        google_refresh_token,
+        google_account_id,
+        last_synced_at
+      `)
       .single()
 
-    if (createError || !newBiz) {
-      const message = createError?.message ?? 'Failed to create business row'
-      console.log('[Google OAuth] Business create failed:', message)
-      return NextResponse.redirect(dashboardError(origin, message))
+    if (createError || !createdBusiness) {
+      return NextResponse.redirect(dashboardError(origin, 'We could not finish setting up your business.'))
     }
 
-    biz = newBiz
+    business = createdBusiness
   }
 
   const updateData: Record<string, string | null> = {
@@ -125,17 +126,35 @@ export async function GET(request: Request) {
   }
   if (!refresh_token) delete updateData.google_refresh_token
 
-  console.log('[Google OAuth] Saving Google tokens to business:', biz.id)
-  const { error: updateError } = await supabase
+  const { error: tokenSaveError } = await supabase
     .from('businesses')
     .update(updateData)
-    .eq('id', biz.id)
+    .eq('id', business.id)
 
-  if (updateError) {
-    console.log('[Google OAuth] Failed saving tokens:', updateError.message)
-    return NextResponse.redirect(dashboardError(origin, updateError.message))
+  if (tokenSaveError) {
+    return NextResponse.redirect(dashboardError(origin, 'We could not save your Google connection.'))
   }
 
-  console.log('[Google OAuth] Tokens saved. Redirecting to dashboard:', successUrl)
-  return NextResponse.redirect(successUrl)
+  const syncedBusiness: GoogleBusinessRecord = {
+    ...(business as GoogleBusinessRecord),
+    google_access_token: access_token,
+    google_refresh_token: refresh_token ?? business.google_refresh_token ?? null,
+  }
+
+  try {
+    const syncResult = await syncBusinessReviews({
+      supabase,
+      business: syncedBusiness,
+      forceGoogle: true,
+      cooldownMs: 5 * 60 * 1000,
+    })
+
+    if (syncResult.hasBusinessProfile === false) {
+      return NextResponse.redirect(`${origin}/dashboard?tab=reviews&google_no_business=1`)
+    }
+  } catch {
+    return NextResponse.redirect(`${origin}/dashboard?tab=reviews&google_connected=1&google_sync_delayed=1`)
+  }
+
+  return NextResponse.redirect(`${origin}/dashboard?tab=reviews&google_connected=1`)
 }

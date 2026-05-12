@@ -2,45 +2,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getBestDraft, generateDraft } from '@/lib/openai'
 import { resend, buildDigestEmail } from '@/lib/resend'
 import { createMagicLink } from '@/lib/magic-link'
+import { BACKGROUND_SYNC_INTERVAL_MS, syncBusinessReviews, type GoogleBusinessRecord } from '@/lib/google-business'
 import { log } from '@/lib/logger'
 import { enqueue } from './queue'
-
-type GoogleReview = {
-  google_review_id: string
-  reviewer_name: string
-  reviewer_photo_url: null
-  rating: number
-  text: string
-  review_date: string
-}
-
-async function fetchGoogleReviews(placeId: string): Promise<GoogleReview[]> {
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY
-  if (!apiKey) return []
-
-  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=reviews&key=${apiKey}`
-  const res = await fetch(url)
-  if (!res.ok) return []
-
-  const data = await res.json()
-  const reviews = data.result?.reviews
-  if (!Array.isArray(reviews) || reviews.length === 0) return []
-
-  return reviews.map((r: {
-    author_name: string
-    profile_photo_url?: string
-    rating: number
-    text?: string
-    time: number
-  }, i: number) => ({
-    google_review_id: `${placeId}_${r.time}_${i}`,
-    reviewer_name: r.author_name,
-    reviewer_photo_url: null as null,
-    rating: r.rating,
-    text: r.text ?? '',
-    review_date: new Date(r.time * 1000).toISOString(),
-  }))
-}
 
 // ─── fetch_reviews ─────────────────────────────────────────────────────────────
 
@@ -52,7 +16,17 @@ export async function handleFetchReviews(payload: Record<string, unknown>): Prom
 
   const { data: business, error: bizError } = await supabase
     .from('businesses')
-    .select('id, google_place_id, auto_reply_enabled')
+    .select(`
+      id,
+      name,
+      google_place_id,
+      google_location_id,
+      google_access_token,
+      google_refresh_token,
+      google_account_id,
+      last_synced_at,
+      auto_reply_enabled
+    `)
     .eq('id', businessId)
     .single()
 
@@ -60,27 +34,11 @@ export async function handleFetchReviews(payload: Record<string, unknown>): Prom
     throw new Error(`Business ${businessId} not found`)
   }
 
-  const rawReviews = business.google_place_id
-    ? await fetchGoogleReviews(business.google_place_id)
-    : []
-
-  const toInsert = rawReviews.map(r => ({
-    business_id:       businessId,
-    google_review_id:  r.google_review_id,
-    reviewer_name:     r.reviewer_name,
-    reviewer_photo_url: r.reviewer_photo_url,
-    rating:            r.rating,
-    text:              r.text,
-    review_date:       r.review_date,
-    status:            'pending',
-  }))
-
-  const { data: inserted, error: insertError } = await supabase
-    .from('reviews')
-    .upsert(toInsert, { onConflict: 'business_id,google_review_id', ignoreDuplicates: true })
-    .select('id')
-
-  if (insertError) throw new Error(insertError.message)
+  const syncResult = await syncBusinessReviews({
+    supabase,
+    business: business as GoogleBusinessRecord,
+    cooldownMs: BACKGROUND_SYNC_INTERVAL_MS,
+  })
 
   // If auto-reply is enabled, enqueue generate_response for reviews without one
   if (business.auto_reply_enabled) {
@@ -104,7 +62,11 @@ export async function handleFetchReviews(payload: Record<string, unknown>): Prom
     action:      'fetch_reviews',
     status:      'success',
     businessId,
-    metadata:    { fetched: rawReviews.length, inserted: inserted?.length ?? 0 },
+    metadata:    {
+      fetched: syncResult.fetched,
+      inserted: syncResult.inserted,
+      source: syncResult.source,
+    },
     durationMs:  Date.now() - t0,
   })
 }

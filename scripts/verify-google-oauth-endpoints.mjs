@@ -29,12 +29,6 @@ assert.match(
 )
 
 assert.match(
-  auth,
-  /console\.log\('\[Google OAuth\] URL:', oauthUrl\)/,
-  'Google OAuth route must log the full generated OAuth URL',
-)
-
-assert.match(
   callback,
   /google_access_token: access_token/,
   'OAuth callback must save access token to businesses.google_access_token',
@@ -48,26 +42,38 @@ assert.match(
 
 assert.match(
   fetchReviews,
+  /syncBusinessReviews/,
+  'Review fetch route should use shared Google Business sync logic',
+)
+
+assert.match(
+  readFileSync('src/lib/google-business.ts', 'utf8'),
   /https:\/\/mybusinessaccountmanagement\.googleapis\.com\/v1\/accounts/,
   'Review fetch must call requested accounts endpoint',
 )
 
 assert.match(
-  fetchReviews,
+  readFileSync('src/lib/google-business.ts', 'utf8'),
   /https:\/\/mybusinessbusinessinformation\.googleapis\.com\/v1\/\$\{accountName\}\/locations\?readMask=name,title,storefrontAddress/,
   'Review fetch must call the Business Information locations endpoint with readMask',
 )
 
 assert.match(
-  fetchReviews,
+  readFileSync('src/lib/google-business.ts', 'utf8'),
   /https:\/\/mybusiness\.googleapis\.com\/v4\/\$\{locationName\}\/reviews/,
   'Review fetch must call the v4 reviews endpoint using the full location resource name',
 )
 
 assert.match(
-  fetchReviews,
+  readFileSync('src/lib/google-business.ts', 'utf8'),
   /Missing API permissions - contact agautomationteam@gmail\.com/,
   'Review fetch must return the required 403 permissions message',
+)
+
+assert.match(
+  readFileSync('src/lib/google-business.ts', 'utf8'),
+  /MANUAL_SYNC_COOLDOWN_MS = 5 \* 60 \* 1000/,
+  'Google review sync should enforce a 5 minute cooldown',
 )
 
 for (const file of filesToScan) {
@@ -79,8 +85,8 @@ for (const file of filesToScan) {
   )
 }
 
-assert.match(readFileSync('src/app/page.tsx', 'utf8'), /'25 FREE AI replies included'/)
-assert.match(readFileSync('src/app/billing/page.tsx', 'utf8'), /'25 FREE AI replies included'/)
-assert.match(readFileSync('src/app/upgrade/page.tsx', 'utf8'), /'25 FREE AI replies included'/)
+assert.match(readFileSync('src/app/page.tsx', 'utf8'), /'25 free AI replies'/)
+assert.match(readFileSync('src/app/billing/page.tsx', 'utf8'), /'25 free AI replies'/)
+assert.match(readFileSync('src/app/upgrade/page.tsx', 'utf8'), /'25 free AI replies'/)
 
 console.log('Google OAuth endpoint checks passed')

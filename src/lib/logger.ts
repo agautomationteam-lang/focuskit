@@ -25,8 +25,6 @@ export async function log(entry: LogEntry): Promise<void> {
     duration_ms:   entry.durationMs  ?? null,
   }
 
-  console.log(JSON.stringify({ ...row, timestamp: new Date().toISOString() }))
-
   const supabase = createAdminClient()
   await supabase.from('action_logs').insert(row).then(null, () => {})
 }

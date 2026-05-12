@@ -21,9 +21,11 @@ export interface Business {
   user_id: string
   name: string
   google_place_id: string | null
+  google_location_id: string | null
   google_access_token: string | null
   google_refresh_token: string | null
   google_account_id: string | null
+  last_synced_at: string | null
   tone: BusinessTone
   auto_reply_enabled: boolean
   created_at: string

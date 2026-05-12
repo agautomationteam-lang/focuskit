@@ -20,7 +20,6 @@ const PLANS = [
     popular: false,
     features: [
       '5 reviews/month',
-      'AI-drafted replies',
       'Manual approve',
     ],
   },
@@ -30,9 +29,7 @@ const PLANS = [
     price: '$29',
     popular: false,
     features: [
-      '25 FREE AI replies included',
-      'Unlimited reviews after that',
-      'Pro & friendly drafts',
+      '25 free AI replies',
       '1-click publish',
       'Weekly digest',
     ],
@@ -43,9 +40,9 @@ const PLANS = [
     price: '$59',
     popular: true,
     features: [
-      'Unlimited AI replies',
-      'Auto-reply enabled',
-      'All 4 tone options',
+      'Unlimited replies',
+      'Auto-reply',
+      'All tones',
       'Priority support',
     ],
   },

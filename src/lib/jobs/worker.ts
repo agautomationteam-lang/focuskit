@@ -3,13 +3,11 @@ import { handleFetchReviews, handleGenerateResponse, handleSendDigest } from './
 import { log } from '@/lib/logger'
 
 async function runJob(job: Job): Promise<void> {
-  // Plain console.log first — visible even if DB logging is unavailable
-  console.log(`[worker] Running job: ${job.type}  id=${job.id}  attempt=${job.attempts}`)
-
-  // Best-effort structured log — must not throw and kill the job
-  log({ action: `job_start:${job.type}`, status: 'info',
-        metadata: { jobId: job.id, attempt: job.attempts, payload: job.payload } })
-    .catch(() => {})
+  await log({
+    action: `job_start:${job.type}`,
+    status: 'info',
+    metadata: { jobId: job.id, attempt: job.attempts, payload: job.payload },
+  }).catch(() => {})
 
   switch (job.type) {
     case 'fetch_reviews':     return handleFetchReviews(job.payload)
@@ -40,14 +38,17 @@ export async function processBatch(batchSize = 5): Promise<BatchResult> {
     try {
       await runJob(job)
       await completeJob(job.id)
-      console.log(`[worker] Completed: ${job.type}  id=${job.id}`)
+      await log({
+        action: `job_complete:${job.type}`,
+        status: 'success',
+        metadata: { jobId: job.id, attempt: job.attempts, payload: job.payload },
+      }).catch(() => {})
       succeeded++
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       await failJob(job, msg)
-      console.error(`[worker] Failed: ${job.type}  id=${job.id}  error="${msg}"`)
       failed++
-      log({
+      await log({
         action:   `job_failed:${job.type}`,
         status:   'error',
         metadata: { jobId: job.id, attempt: job.attempts, payload: job.payload },

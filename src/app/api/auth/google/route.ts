@@ -28,7 +28,6 @@ export async function GET(request: Request) {
   })
 
   const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
-  console.log('[Google OAuth] URL:', oauthUrl)
 
   return NextResponse.redirect(oauthUrl)
 }

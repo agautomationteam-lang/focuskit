@@ -79,6 +79,7 @@ interface Props {
   initialReviews: ReviewData[]
   subscriptionStatus: string
   reviewCount: number
+  initialLastSyncedAt?: string | null
   demo?: boolean
   googleConnected?: boolean
 }
@@ -143,6 +144,7 @@ export default function ReviewList({
   initialReviews,
   subscriptionStatus,
   reviewCount: initialReviewCount,
+  initialLastSyncedAt = null,
   demo = false,
   googleConnected = false,
 }: Props) {
@@ -155,23 +157,28 @@ export default function ReviewList({
   const googleErrorMessage = searchParams.get('google_error_message')
   const googleNoBusiness = searchParams.get('google_no_business') === '1'
   const googleBlocked    = searchParams.get('google_blocked') === '1'
+  const googleSyncDelayed = searchParams.get('google_sync_delayed') === '1'
   const dashTab          = searchParams.get('tab') ?? 'home'
 
   const [reviews, setReviews]               = useState<ReviewData[]>(initialReviews)
-  const liveReviewCount                     = initialReviewCount
+  const [liveReviewCount, setLiveReviewCount] = useState(initialReviewCount)
   const [tab, setTab]                       = useState<Tab>('all')
   const [toasts, setToasts]                 = useState<Toast[]>([])
   const activityLog: ActivityEvent[]        = []
   const [loading, setLoading]               = useState(false)
   const [loadStatus, setLoadStatus]         = useState<string | null>(null)
   const [error, setError]                   = useState<string | null>(null)
-  const [lastUpdatedAt, setLastUpdatedAt]   = useState<Date | null>(null)
+  const [syncNotice, setSyncNotice]         = useState<string | null>(null)
+  const [nextSyncAt, setNextSyncAt]         = useState<Date | null>(
+    initialLastSyncedAt ? new Date(new Date(initialLastSyncedAt).getTime() + 5 * 60 * 1000) : null
+  )
+  const [nextSyncLabel, setNextSyncLabel]   = useState('')
+  const [lastUpdatedAt, setLastUpdatedAt]   = useState<Date | null>(initialLastSyncedAt ? new Date(initialLastSyncedAt) : null)
   const [lastUpdatedLabel, setLastUpdatedLabel] = useState('')
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [ptrActive, setPtrActive]           = useState(false)
   const [showWelcome, setShowWelcome]       = useState(false)
   const [welcomeName, setWelcomeName]       = useState('')
-  const autoFetchAfterConnectRef            = useRef(false)
 
   // ── Pagination & sort ────────────────────────────────────────────────────────
   const [sort, setSort]             = useState<SortType>('newest')
@@ -213,7 +220,7 @@ export default function ReviewList({
 
   useEffect(() => {
     if (publishFailed || upgradeSuccess) router.replace('/dashboard')
-    if (justConnected || googleError || googleNoBusiness || googleBlocked) {
+    if (justConnected || googleError || googleNoBusiness || googleBlocked || googleSyncDelayed) {
       router.replace(`/dashboard?tab=${dashTab}`)
     }
 
@@ -236,12 +243,6 @@ export default function ReviewList({
         void applySortFetch(saved)
       }
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!justConnected || autoFetchAfterConnectRef.current) return
-    autoFetchAfterConnectRef.current = true
-    void handleRefresh()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function dismissWelcome() {
@@ -268,6 +269,30 @@ export default function ReviewList({
     const id = setInterval(refresh, 5000)
     return () => clearInterval(id)
   }, [lastUpdatedAt])
+
+  useEffect(() => {
+    if (!nextSyncAt) {
+      setNextSyncLabel('')
+      return
+    }
+
+    const syncAt = nextSyncAt
+
+    function refresh() {
+      const msLeft = syncAt.getTime() - Date.now()
+      if (msLeft <= 0) {
+        setNextSyncLabel('Refresh available now')
+        return
+      }
+
+      const minutesLeft = Math.max(1, Math.ceil(msLeft / 60000))
+      setNextSyncLabel(`Next sync available in ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'}`)
+    }
+
+    refresh()
+    const id = setInterval(refresh, 30000)
+    return () => clearInterval(id)
+  }, [nextSyncAt])
 
   // ── Toast system ─────────────────────────────────────────────────────────────
 
@@ -354,15 +379,33 @@ export default function ReviewList({
     setLoading(true)
     setLoadStatus('Fetching reviews…')
     setError(null)
+    setSyncNotice(null)
     try {
       const res = await fetch('/api/reviews/fetch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ businessId: business.id }),
       })
+      const syncResult = await res.json().catch(() => ({})) as {
+        error?: string
+        message?: string
+        totalAvailable?: number
+        nextSyncAt?: string
+        lastSyncedAt?: string
+      }
+
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({})) as { error?: string }
-        throw new Error(errData.error ?? 'Failed to fetch reviews from Google')
+        throw new Error(syncResult.error ?? 'Could not refresh your reviews right now.')
+      }
+
+      if (syncResult.message) {
+        setSyncNotice(syncResult.message)
+      }
+      if (syncResult.nextSyncAt) {
+        setNextSyncAt(new Date(syncResult.nextSyncAt))
+      }
+      if (syncResult.lastSyncedAt) {
+        setLastUpdatedAt(new Date(syncResult.lastSyncedAt))
       }
 
       const { createClient } = await import('@/lib/supabase/client')
@@ -395,12 +438,12 @@ export default function ReviewList({
 
       const finalReviews = final ?? []
       setReviews(finalReviews)
+      setLiveReviewCount(syncResult.totalAvailable ?? finalReviews.length)
       setOffset(0)
       setHasMore(finalReviews.length === PAGE_SIZE)
-      setLastUpdatedAt(new Date())
       setLoadStatus(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not sync reviews — check your Google Business connection.')
+      setError(err instanceof Error ? err.message : 'Could not refresh your reviews right now.')
     } finally {
       setLoading(false)
     }
@@ -510,7 +553,12 @@ export default function ReviewList({
               {justConnected && (
                 <div className="mb-5 flex items-center gap-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl px-4 py-3 text-sm text-emerald-300 font-medium slide-in-down">
                   <span className="text-base">✓</span>
-                  Google Business connected! Click <strong>Refresh</strong> to load your real reviews.
+                  Google Business connected. Your latest saved reviews are ready below.
+                </div>
+              )}
+              {googleSyncDelayed && (
+                <div className="mb-5 bg-blue-500/10 border border-blue-500/25 rounded-xl px-4 py-3 text-sm text-blue-300 slide-in-down">
+                  Google connected. Review sync is still finishing in the background, so you may see saved reviews first.
                 </div>
               )}
               {googleBlocked && (
@@ -562,6 +610,12 @@ export default function ReviewList({
               {error && (
                 <div className="mb-5 bg-red-500/15 border border-red-500/30 rounded-xl px-4 py-3 text-sm text-red-300">
                   {error}
+                </div>
+              )}
+              {syncNotice && (
+                <div className="mb-5 bg-blue-500/10 border border-blue-500/25 rounded-xl px-4 py-3 text-sm text-blue-300">
+                  <div>{syncNotice}</div>
+                  {nextSyncLabel && <div className="mt-1 text-xs text-blue-200/80">{nextSyncLabel}</div>}
                 </div>
               )}
 
@@ -636,6 +690,11 @@ export default function ReviewList({
                   {lastUpdatedLabel && (
                     <span className="text-[11px] text-slate-500 tabular-nums">
                       Updated {lastUpdatedLabel}
+                    </span>
+                  )}
+                  {nextSyncLabel && !syncNotice && (
+                    <span className="text-[11px] text-slate-500 tabular-nums">
+                      {nextSyncLabel}
                     </span>
                   )}
                   {!demo && (
