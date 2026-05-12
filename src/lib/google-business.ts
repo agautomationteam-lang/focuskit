@@ -25,6 +25,10 @@ interface GBPReview {
   createTime?: string
 }
 
+interface GBPAccountsResponse {
+  accounts?: GBPAccount[]
+}
+
 export interface GoogleBusinessRecord {
   id: string
   user_id?: string
@@ -47,6 +51,7 @@ export interface SyncBusinessReviewsResult {
   lastSyncedAt?: string
   hasBusinessProfile?: boolean
   needsReconnect?: boolean
+  needsManualLocationId?: boolean
 }
 
 export class GoogleApiError extends Error {
@@ -119,8 +124,8 @@ async function refreshGoogleAccessToken(refreshToken: string): Promise<string> {
 }
 
 async function fetchAllReviewsFromGoogle(accessToken: string) {
-  const accountsData = await googleGet<{ accounts?: GBPAccount[] }>(
-    'https://mybusinessaccountmanagement.googleapis.com/v1/accounts',
+  const accountsData = await googleGet<GBPAccountsResponse>(
+    'https://mybusinessbusinessinformation.googleapis.com/v1/accounts',
     accessToken,
   )
 
@@ -168,6 +173,34 @@ async function fetchAllReviewsFromGoogle(accessToken: string) {
     firstBusinessTitle,
     hasBusinessProfile: locationCount > 0,
   }
+}
+
+function normalizeLocationPath(location: string) {
+  return location.startsWith('accounts/')
+    ? location
+    : `accounts/-/locations/${location}`
+}
+
+async function fetchReviewsForManualLocationId(accessToken: string, locationId: string) {
+  const locationPath = normalizeLocationPath(locationId)
+  const reviewsData = await googleGet<{ reviews?: GBPReview[] }>(
+    `https://mybusiness.googleapis.com/v4/${locationPath}/reviews`,
+    accessToken,
+  )
+
+  return {
+    reviews: reviewsData.reviews ?? [],
+    firstLocationPath: locationPath,
+    firstAccountName: locationPath.split('/locations/')[0],
+    firstBusinessTitle: '',
+    hasBusinessProfile: true,
+  }
+}
+
+export function extractLocationIdFromBusinessUrl(input: string) {
+  const trimmed = input.trim()
+  const match = trimmed.match(/\/dashboard\/l\/([^/?#]+)/i)
+  return match?.[1] ?? null
 }
 
 async function countSavedReviews(
@@ -218,7 +251,9 @@ export async function syncBusinessReviews({
   let googleData
 
   try {
-    googleData = await fetchAllReviewsFromGoogle(accessToken)
+    googleData = business.google_location_id
+      ? await fetchReviewsForManualLocationId(accessToken, business.google_location_id)
+      : await fetchAllReviewsFromGoogle(accessToken)
   } catch (err) {
     if (err instanceof GoogleApiError && err.status === 401 && business.google_refresh_token) {
       accessToken = await refreshGoogleAccessToken(business.google_refresh_token)
@@ -231,7 +266,9 @@ export async function syncBusinessReviews({
         throw new GoogleApiError(500, 'Could not update your Google connection.')
       }
 
-      googleData = await fetchAllReviewsFromGoogle(accessToken)
+      googleData = business.google_location_id
+        ? await fetchReviewsForManualLocationId(accessToken, business.google_location_id)
+        : await fetchAllReviewsFromGoogle(accessToken)
     } else if (err instanceof GoogleApiError && isQuotaError(err.status, err.message, err.details)) {
       const totalSaved = await countSavedReviews(supabase, business.id)
       return {
@@ -243,12 +280,35 @@ export async function syncBusinessReviews({
         nextSyncAt: (nextSyncAt ?? new Date(Date.now() + cooldownMs)).toISOString(),
         lastSyncedAt: lastSynced?.toISOString(),
       }
+    } else if (!business.google_location_id && err instanceof GoogleApiError) {
+      const totalSaved = await countSavedReviews(supabase, business.id)
+      return {
+        source: totalSaved > 0 ? 'cache' : 'none',
+        fetched: totalSaved,
+        inserted: 0,
+        totalAvailable: totalSaved,
+        hasBusinessProfile: false,
+        needsManualLocationId: true,
+        message: totalSaved > 0 ? QUOTA_FALLBACK_MESSAGE : undefined,
+      }
     } else {
       throw err
     }
   }
 
   const syncedAt = new Date().toISOString()
+  if (!business.google_location_id && googleData.hasBusinessProfile === false) {
+    const totalSaved = await countSavedReviews(supabase, business.id)
+    return {
+      source: totalSaved > 0 ? 'cache' : 'none',
+      fetched: totalSaved,
+      inserted: 0,
+      totalAvailable: totalSaved,
+      hasBusinessProfile: false,
+      needsManualLocationId: true,
+    }
+  }
+
   const toUpsert = googleData.reviews.map(review => ({
     business_id: business.id,
     google_review_id: review.name,

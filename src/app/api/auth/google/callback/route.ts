@@ -149,8 +149,12 @@ export async function GET(request: Request) {
       cooldownMs: 5 * 60 * 1000,
     })
 
+    if (syncResult.needsManualLocationId) {
+      return NextResponse.redirect(`${origin}/dashboard?tab=reviews&google_connected=1&google_needs_profile_url=1`)
+    }
+
     if (syncResult.hasBusinessProfile === false) {
-      return NextResponse.redirect(`${origin}/dashboard?tab=reviews&google_no_business=1`)
+      return NextResponse.redirect(`${origin}/dashboard?tab=reviews&google_no_business=1&google_needs_profile_url=1`)
     }
   } catch {
     return NextResponse.redirect(`${origin}/dashboard?tab=reviews&google_connected=1&google_sync_delayed=1`)

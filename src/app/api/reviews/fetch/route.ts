@@ -63,6 +63,13 @@ export async function POST(request: Request) {
       cooldownMs: MANUAL_SYNC_COOLDOWN_MS,
     })
 
+    if (result.needsManualLocationId) {
+      return NextResponse.json({
+        ...result,
+        error: 'Almost done! Enter your Google Business Profile URL to start fetching reviews.',
+      })
+    }
+
     if (result.source === 'google' && result.hasBusinessProfile === false) {
       return NextResponse.json({
         error: 'No Google Business Profile was found for this account.',

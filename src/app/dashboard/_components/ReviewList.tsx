@@ -80,6 +80,7 @@ interface Props {
   subscriptionStatus: string
   reviewCount: number
   initialLastSyncedAt?: string | null
+  hasLocationId?: boolean
   demo?: boolean
   googleConnected?: boolean
 }
@@ -145,6 +146,7 @@ export default function ReviewList({
   subscriptionStatus,
   reviewCount: initialReviewCount,
   initialLastSyncedAt = null,
+  hasLocationId = false,
   demo = false,
   googleConnected = false,
 }: Props) {
@@ -158,6 +160,7 @@ export default function ReviewList({
   const googleNoBusiness = searchParams.get('google_no_business') === '1'
   const googleBlocked    = searchParams.get('google_blocked') === '1'
   const googleSyncDelayed = searchParams.get('google_sync_delayed') === '1'
+  const googleNeedsProfileUrl = searchParams.get('google_needs_profile_url') === '1'
   const dashTab          = searchParams.get('tab') ?? 'home'
 
   const [reviews, setReviews]               = useState<ReviewData[]>(initialReviews)
@@ -180,6 +183,10 @@ export default function ReviewList({
   const [showWelcome, setShowWelcome]       = useState(false)
   const [welcomeName, setWelcomeName]       = useState('')
   const initialRefreshTriggeredRef          = useRef(false)
+  const [profileUrl, setProfileUrl]         = useState('')
+  const [savingProfileUrl, setSavingProfileUrl] = useState(false)
+  const [manualLocationConnected, setManualLocationConnected] = useState(hasLocationId)
+  const [showManualUrlForm, setShowManualUrlForm] = useState(googleNeedsProfileUrl)
 
   // ── Pagination & sort ────────────────────────────────────────────────────────
   const [sort, setSort]             = useState<SortType>('newest')
@@ -221,7 +228,7 @@ export default function ReviewList({
 
   useEffect(() => {
     if (publishFailed || upgradeSuccess) router.replace('/dashboard')
-    if (justConnected || googleError || googleNoBusiness || googleBlocked || googleSyncDelayed) {
+    if (justConnected || googleError || googleNoBusiness || googleBlocked || googleSyncDelayed || googleNeedsProfileUrl) {
       router.replace(`/dashboard?tab=${dashTab}`)
     }
 
@@ -402,10 +409,18 @@ export default function ReviewList({
         totalAvailable?: number
         nextSyncAt?: string
         lastSyncedAt?: string
+        needsManualLocationId?: boolean
       }
 
       if (!res.ok) {
         throw new Error(syncResult.error ?? 'Could not refresh your reviews right now.')
+      }
+
+      if (syncResult.needsManualLocationId) {
+        setShowManualUrlForm(true)
+        setError(syncResult.error ?? null)
+        setLoadStatus(null)
+        return
       }
 
       if (syncResult.message) {
@@ -449,6 +464,7 @@ export default function ReviewList({
       const finalReviews = final ?? []
       setReviews(finalReviews)
       setLiveReviewCount(syncResult.totalAvailable ?? finalReviews.length)
+      setManualLocationConnected(true)
       setOffset(0)
       setHasMore(finalReviews.length === PAGE_SIZE)
       setLoadStatus(null)
@@ -456,6 +472,43 @@ export default function ReviewList({
       setError(err instanceof Error ? err.message : 'Could not refresh your reviews right now.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleConnectBusinessUrl() {
+    setSavingProfileUrl(true)
+    setError(null)
+    setSyncNotice(null)
+
+    try {
+      const res = await fetch('/api/businesses/google-profile-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId: business.id, profileUrl }),
+      })
+
+      const data = await res.json().catch(() => ({})) as {
+        error?: string
+        totalAvailable?: number
+        nextSyncAt?: string
+        lastSyncedAt?: string
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error ?? 'Could not connect that Google Business URL.')
+      }
+
+      setManualLocationConnected(true)
+      setShowManualUrlForm(false)
+      setProfileUrl('')
+      setSyncNotice('Google Business Profile connected.')
+      if (data.nextSyncAt) setNextSyncAt(new Date(data.nextSyncAt))
+      if (data.lastSyncedAt) setLastUpdatedAt(new Date(data.lastSyncedAt))
+      await handleRefresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not connect that Google Business URL.')
+    } finally {
+      setSavingProfileUrl(false)
     }
   }
 
@@ -564,6 +617,30 @@ export default function ReviewList({
                 <div className="mb-5 flex items-center gap-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl px-4 py-3 text-sm text-emerald-300 font-medium slide-in-down">
                   <span className="text-base">✓</span>
                   Google Business connected. Your latest saved reviews are ready below.
+                </div>
+              )}
+              {showManualUrlForm && !manualLocationConnected && googleConnected && (
+                <div className="mb-5 bg-blue-500/10 border border-blue-500/25 rounded-xl px-4 py-4 slide-in-down">
+                  <p className="text-sm font-semibold text-blue-300 mb-1">Almost done! Enter your Google Business Profile URL</p>
+                  <p className="text-xs text-blue-200/80 mb-3">
+                    Paste a URL like <strong>https://business.google.com/dashboard/l/XXXXX</strong> so we can fetch your real reviews.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="url"
+                      value={profileUrl}
+                      onChange={e => setProfileUrl(e.target.value)}
+                      placeholder="https://business.google.com/dashboard/l/XXXXX"
+                      className="flex-1 rounded-lg border border-blue-400/30 bg-slate-900/50 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                      <button
+                        onClick={handleConnectBusinessUrl}
+                        disabled={savingProfileUrl || !profileUrl.trim()}
+                      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                    >
+                      {savingProfileUrl ? 'Connecting…' : 'Connect'}
+                    </button>
+                  </div>
                 </div>
               )}
               {googleSyncDelayed && (
@@ -740,18 +817,35 @@ export default function ReviewList({
               ) : reviews.length === 0 ? (
                 <div className="text-center py-20 px-6">
                   <div className="w-16 h-16 rounded-2xl bg-blue-500/20 flex items-center justify-center text-3xl mx-auto mb-5">📬</div>
-                  <h2 className="text-base font-semibold text-white mb-2">No reviews yet</h2>
-                  <p className="text-sm text-slate-400 mb-7 max-w-xs mx-auto leading-relaxed">
-                    When you get reviews, they&apos;ll appear here. AI replies will post automatically — you don&apos;t need to lift a finger.
-                  </p>
-                  {!demo && (
-                    <button
-                      onClick={handleRefresh}
-                      disabled={loading}
-                      className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm"
-                    >
-                      {loading ? loadStatus ?? 'Fetching…' : '↻ Fetch my reviews'}
-                    </button>
+                  {!manualLocationConnected && googleConnected ? (
+                    <>
+                      <h2 className="text-base font-semibold text-white mb-2">Connect your Google Business Profile to see real reviews</h2>
+                      <p className="text-sm text-slate-400 mb-7 max-w-xs mx-auto leading-relaxed">
+                        Enter your Google Business Profile URL once and we&apos;ll use it for future review syncs.
+                      </p>
+                      <button
+                        onClick={() => setShowManualUrlForm(true)}
+                        className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm"
+                      >
+                        Enter Business URL
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-base font-semibold text-white mb-2">No reviews yet</h2>
+                      <p className="text-sm text-slate-400 mb-7 max-w-xs mx-auto leading-relaxed">
+                        When you get reviews, they&apos;ll appear here. AI replies will post automatically — you don&apos;t need to lift a finger.
+                      </p>
+                      {!demo && (
+                        <button
+                          onClick={handleRefresh}
+                          disabled={loading}
+                          className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm"
+                        >
+                          {loading ? loadStatus ?? 'Fetching…' : '↻ Fetch my reviews'}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               ) : filtered.length === 0 ? (

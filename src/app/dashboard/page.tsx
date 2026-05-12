@@ -14,7 +14,7 @@ export default async function DashboardPage() {
   const [{ data: userRecord }, { data: biz }] = await Promise.all([
     supabase.from('users').select('subscription_status, email').eq('id', user.id).single(),
     supabase.from('businesses')
-      .select('id, name, tone, auto_reply_enabled, google_place_id, google_access_token, last_synced_at')
+      .select('id, name, tone, auto_reply_enabled, google_place_id, google_location_id, google_access_token, last_synced_at')
       .eq('user_id', user.id)
       .maybeSingle(),
   ])
@@ -60,6 +60,7 @@ export default async function DashboardPage() {
           reviewCount={reviewsTotal ?? reviews?.length ?? 0}
           demo={false}
           googleConnected={googleConnected}
+          hasLocationId={!!biz.google_location_id}
           initialLastSyncedAt={biz.last_synced_at}
         />
       </Suspense>

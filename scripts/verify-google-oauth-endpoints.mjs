@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs'
 const auth = readFileSync('src/app/api/auth/google/route.ts', 'utf8')
 const callback = readFileSync('src/app/api/auth/google/callback/route.ts', 'utf8')
 const fetchReviews = readFileSync('src/app/api/reviews/fetch/route.ts', 'utf8')
+const googleBusiness = readFileSync('src/lib/google-business.ts', 'utf8')
+const manualProfileRoute = readFileSync('src/app/api/businesses/google-profile-url/route.ts', 'utf8')
 const filesToScan = [
   'src/app/page.tsx',
   'src/app/billing/page.tsx',
@@ -47,31 +49,67 @@ assert.match(
 )
 
 assert.match(
-  readFileSync('src/lib/google-business.ts', 'utf8'),
-  /https:\/\/mybusinessaccountmanagement\.googleapis\.com\/v1\/accounts/,
-  'Review fetch must call requested accounts endpoint',
+  googleBusiness,
+  /https:\/\/mybusinessbusinessinformation\.googleapis\.com\/v1\/accounts/,
+  'Review fetch must call the Business Information accounts endpoint first',
+)
+
+assert.doesNotMatch(
+  googleBusiness,
+  /mybusinessaccountmanagement\.googleapis\.com/,
+  'Review fetch must not depend on the account management API',
 )
 
 assert.match(
-  readFileSync('src/lib/google-business.ts', 'utf8'),
+  googleBusiness,
   /https:\/\/mybusinessbusinessinformation\.googleapis\.com\/v1\/\$\{accountName\}\/locations\?readMask=name,title,storefrontAddress/,
   'Review fetch must call the Business Information locations endpoint with readMask',
 )
 
 assert.match(
-  readFileSync('src/lib/google-business.ts', 'utf8'),
+  googleBusiness,
   /https:\/\/mybusiness\.googleapis\.com\/v4\/\$\{locationName\}\/reviews/,
   'Review fetch must call the v4 reviews endpoint using the full location resource name',
 )
 
 assert.match(
-  readFileSync('src/lib/google-business.ts', 'utf8'),
+  googleBusiness,
+  /https:\/\/mybusiness\.googleapis\.com\/v4\/\$\{locationPath\}\/reviews/,
+  'Manual location ID fallback must fetch reviews directly from the saved location path',
+)
+
+assert.match(
+  manualProfileRoute,
+  /extractLocationIdFromBusinessUrl/,
+  'Manual profile URL route must extract a location ID from the Business Profile URL',
+)
+
+assert.match(
+  callback,
+  /google_needs_profile_url=1/,
+  'OAuth callback must send users to the manual profile URL step when discovery fails',
+)
+
+assert.match(
+  readFileSync('src/app/dashboard/_components/ReviewList.tsx', 'utf8'),
+  /Almost done! Enter your Google Business Profile URL/,
+  'Reviews tab must show the manual Business Profile URL step',
+)
+
+assert.match(
+  readFileSync('src/app/dashboard/_components/ReviewList.tsx', 'utf8'),
+  /Connect your Google Business Profile to see real reviews/,
+  'Empty reviews state must prompt for a Business Profile URL when no location is connected',
+)
+
+assert.match(
+  googleBusiness,
   /Missing API permissions - contact agautomationteam@gmail\.com/,
   'Review fetch must return the required 403 permissions message',
 )
 
 assert.match(
-  readFileSync('src/lib/google-business.ts', 'utf8'),
+  googleBusiness,
   /MANUAL_SYNC_COOLDOWN_MS = 5 \* 60 \* 1000/,
   'Google review sync should enforce a 5 minute cooldown',
 )
